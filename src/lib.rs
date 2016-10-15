@@ -3,8 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![deny(
-    missing_copy_implementations,
-    missing_debug_implementations,
     missing_docs,
     non_camel_case_types,
     non_snake_case,
@@ -43,7 +41,7 @@ mod error;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
-use std::sync::{RwLock, Mutex};
+use std::sync::{RwLock, RwLockWriteGuard, Mutex};
 use std::hash::Hash;
 use std::borrow::Borrow;
 
@@ -194,6 +192,17 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
         }
     }
 
+    /// Checks wether a given key exists in the Database
+    pub fn contains_key<S: Deserialize, K: ?Sized>(&self, key: &K) -> bool
+        where T: Borrow<K>, K: Hash + Eq
+    {
+        let map = match  self.data.read() {
+            Ok(guard) => guard,
+            Err(_) => unimplemented!(), // TODO: Implement recovery?
+        };
+        map.get(key.borrow()).is_some()
+    }
+
     /// Flushes the Database to disk
     pub fn flush(&mut self) -> BreakResult<()> {
         use bincode::serde::serialize;
@@ -213,6 +222,100 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
         let buf = try!(serialize(&*map, SizeLimit::Infinite));
         try!(file.write(&buf));
         try!(file.flush());
+        Ok(())
+    }
+
+    /// Starts a transaction
+    ///
+    /// This borrows the Database mutably! Which means that during the Transaction you cannot write
+    /// to it. This keeps the Database consistent. Be sure to not do anything too costly while it
+    /// is borrowed.
+    pub fn transaction<'a>(&'a self) -> Transaction<'a, T> {
+        let map = match self.data.write() {
+            Ok(guard) => guard,
+            Err(_) => unimplemented!(), // TODO: Implement recovery?
+        };
+        Transaction {
+            cow: Some(map),
+            lock: &self.data,
+            data: RwLock::new(HashMap::new()),
+        }
+    }
+}
+
+/// A Transaction that is atomic in writes
+///
+/// You generate this by calling `transaction` on a `Database` object.
+/// The transaction does not get automatically applied when it is dropped, you have to `run` it.
+/// This allows for defensive programming where the values are only applied when it is run.
+pub struct Transaction<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
+    cow: Option<RwLockWriteGuard<'a, HashMap<T, Vec<u8>>>>,
+    lock: &'a RwLock<HashMap<T, Vec<u8>>>,
+    data: RwLock<HashMap<T, Vec<u8>>>,
+}
+
+impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
+    /// Insert a given Object into the Database at that key
+    ///
+    /// See `Database::insert` for details
+    pub fn insert<S: Serialize + 'static, K: ?Sized>(&self, key: &K, obj: S) -> BreakResult<()>
+        where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
+    {
+        use bincode::serde::serialize;
+        use bincode::SizeLimit;
+        let mut map = match  self.data.write() {
+            Ok(guard) => guard,
+            Err(_) => unimplemented!(), // TODO: Implement recovery?
+        };
+        map.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
+        Ok(())
+    }
+
+    /// Retrieves an Object from the Database
+    ///
+    /// See `Database::retrieve` for details
+    pub fn retrieve<S: Deserialize, K: ?Sized>(&self, key: &K) -> BreakResult<S>
+        where T: Borrow<K>, K: Hash + Eq
+    {
+        use bincode::serde::deserialize;
+        if self.cow.as_ref().unwrap().contains_key(key) {
+            match self.cow.as_ref().unwrap().get(key.borrow()) {
+                Some(t) => Ok(try!(deserialize(t))),
+                None => Err(BreakError::NotFound),
+            }
+        } else {
+            let map = match  self.data.read() {
+                Ok(guard) => guard,
+                Err(_) => unimplemented!(), // TODO: Implement recovery?
+            };
+            match map.get(key.borrow()) {
+                Some(t) => Ok(try!(deserialize(t))),
+                None => Err(BreakError::NotFound),
+            }
+        }
+    }
+
+    /// Consumes the Transaction and runs it
+    fn _run(self) -> BreakResult<()> {
+        if let Some(lock) = self.cow.take() {
+            drop(lock);
+        } else {
+            unreachable!();
+        }
+
+        let mut map = match  self.data.write() {
+            Ok(guard) => guard,
+            Err(_) => unimplemented!(), // TODO: Implement recovery?
+        };
+
+        let mut other_map = match  self.lock.write() {
+            Ok(guard) => guard,
+            Err(_) => unimplemented!(), // TODO: Implement recovery?
+        };
+
+        for (k, v) in map.drain() {
+            other_map.insert(k, v);
+        }
         Ok(())
     }
 }
@@ -242,5 +345,42 @@ mod test {
         let db : Database<String> = Database::open(tmpf.path()).unwrap();
         let hello : String = db.retrieve("test").unwrap();
         assert_eq!(hello, "Hello World!");
+    }
+
+    #[test]
+    fn simple_transaction() {
+        let tmpf = NamedTempFile::new().unwrap();
+        let db = Database::open(tmpf.path()).unwrap();
+        assert!(db.retrieve::<String, str>("test").is_err());
+        {
+            let trans = db.transaction();
+            trans.insert("test", "Hello World!").unwrap();
+            trans.run();
+        }
+        let hello : String = db.retrieve("test").unwrap();
+        assert_eq!(hello, "Hello World!");
+    }
+
+    #[test]
+    fn multithreaded_locking() {
+        use std::sync::Arc;
+        let tmpf = NamedTempFile::new().unwrap();
+        let db = Arc::new(Database::open(tmpf.path()).unwrap());
+        db.insert("value", 0i64).unwrap();
+        let mut threads = vec![];
+        for _ in 0..10 {
+            use std::thread;
+            let a = db.clone();
+            threads.push(thread::spawn(move || {
+                let lock = a.lock();
+                let x = lock.retrieve::<i64, str>("value").unwrap();
+                lock.insert("value", x + 1).unwrap();
+            }));
+        }
+        for thr in threads {
+            thr.join().unwrap();
+        }
+        let x = db.retrieve::<i64, str>("value").unwrap();
+        assert_eq!(x, 10);
     }
 }
