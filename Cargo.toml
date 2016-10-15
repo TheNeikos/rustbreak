@@ -1,0 +1,6 @@
+[package]
+name = "rustbreak"
+version = "0.1.0"
+authors = ["Marcel Müller <neikos@neikos.email>"]
+
+[dependencies]
