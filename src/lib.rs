@@ -231,25 +231,65 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// to it. This keeps the Database consistent. Be sure to not do anything too costly while it
     /// is borrowed.
     pub fn transaction<'a>(&'a self) -> Transaction<'a, T> {
-        let map = match self.data.write() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
         Transaction {
-            cow: Some(map),
             lock: &self.data,
             data: RwLock::new(HashMap::new()),
         }
     }
+
+    /// Locks the Database, making sure only the caller can change it
+    ///
+    /// This write locks the Database until the `Lock` has been dropped.
+    pub fn lock<'a>(&'a self) -> Lock<'a, T> {
+        let map = match self.data.write() {
+            Ok(guard) => guard,
+            Err(_) => unimplemented!(), // TODO: Implement recovery?
+        };
+        Lock {
+            cow: map,
+        }
+    }
+}
+
+/// Structure representing a lock of the Database
+pub struct Lock<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
+    cow: RwLockWriteGuard<'a, HashMap<T, Vec<u8>>>,
+}
+
+impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
+    /// Insert a given Object into the Database at that key
+    ///
+    /// See `Database::insert` for details
+    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> BreakResult<()>
+        where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
+    {
+        use bincode::serde::serialize;
+        use bincode::SizeLimit;
+        self.cow.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
+        Ok(())
+    }
+
+    /// Retrieves an Object from the Database
+    ///
+    /// See `Database::retrieve` for details
+    pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> BreakResult<S>
+        where T: Borrow<K>, K: Hash + Eq
+    {
+        use bincode::serde::deserialize;
+        match self.cow.get(key.borrow()) {
+            Some(t) => Ok(try!(deserialize(t))),
+            None => Err(BreakError::NotFound),
+        }
+    }
+
 }
 
 /// A Transaction that is atomic in writes
 ///
-/// You generate this by calling `transaction` on a `Database` object.
+/// You generate this by calling `transaction` on a `Database` or `Lock` object.
 /// The transaction does not get automatically applied when it is dropped, you have to `run` it.
-/// This allows for defensive programming where the values are only applied when it is run.
+/// This allows for defensive programming where the values are only applied once it is `run`.
 pub struct Transaction<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
-    cow: Option<RwLockWriteGuard<'a, HashMap<T, Vec<u8>>>>,
     lock: &'a RwLock<HashMap<T, Vec<u8>>>,
     data: RwLock<HashMap<T, Vec<u8>>>,
 }
@@ -258,16 +298,19 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
-    pub fn insert<S: Serialize + 'static, K: ?Sized>(&self, key: &K, obj: S) -> BreakResult<()>
+    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> BreakResult<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
         use bincode::serde::serialize;
         use bincode::SizeLimit;
-        let mut map = match  self.data.write() {
+
+        let mut map = match self.data.write() {
             Ok(guard) => guard,
             Err(_) => unimplemented!(), // TODO: Implement recovery?
         };
+
         map.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
+
         Ok(())
     }
 
@@ -278,8 +321,12 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
         where T: Borrow<K>, K: Hash + Eq
     {
         use bincode::serde::deserialize;
-        if self.cow.as_ref().unwrap().contains_key(key) {
-            match self.cow.as_ref().unwrap().get(key.borrow()) {
+        let other_map = match self.lock.read() {
+            Ok(guard) => guard,
+            Err(_) => unimplemented!(), // TODO: Implement recovery?
+        };
+        if other_map.contains_key(key) {
+            match other_map.get(key.borrow()) {
                 Some(t) => Ok(try!(deserialize(t))),
                 None => Err(BreakError::NotFound),
             }
@@ -296,19 +343,13 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
     }
 
     /// Consumes the Transaction and runs it
-    fn _run(self) -> BreakResult<()> {
-        if let Some(lock) = self.cow.take() {
-            drop(lock);
-        } else {
-            unreachable!();
-        }
-
-        let mut map = match  self.data.write() {
+    pub fn run(self) -> BreakResult<()> {
+        let mut other_map = match  self.lock.write() {
             Ok(guard) => guard,
             Err(_) => unimplemented!(), // TODO: Implement recovery?
         };
 
-        let mut other_map = match  self.lock.write() {
+        let mut map = match  self.data.write() {
             Ok(guard) => guard,
             Err(_) => unimplemented!(), // TODO: Implement recovery?
         };
@@ -316,6 +357,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
         for (k, v) in map.drain() {
             other_map.insert(k, v);
         }
+
         Ok(())
     }
 }
@@ -353,9 +395,14 @@ mod test {
         let db = Database::open(tmpf.path()).unwrap();
         assert!(db.retrieve::<String, str>("test").is_err());
         {
-            let trans = db.transaction();
+            let mut trans = db.transaction();
             trans.insert("test", "Hello World!").unwrap();
-            trans.run();
+            trans.run().unwrap();
+        }
+        {
+            let mut trans = db.transaction();
+            trans.insert("test", "Hello World too!!").unwrap();
+            drop(trans);
         }
         let hello : String = db.retrieve("test").unwrap();
         assert_eq!(hello, "Hello World!");
@@ -372,7 +419,7 @@ mod test {
             use std::thread;
             let a = db.clone();
             threads.push(thread::spawn(move || {
-                let lock = a.lock();
+                let mut lock = a.lock();
                 let x = lock.retrieve::<i64, str>("value").unwrap();
                 lock.insert("value", x + 1).unwrap();
             }));
