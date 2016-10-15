@@ -1,6 +1,13 @@
 [package]
+authors = ["Marcel Müller <neikos@neikos.email>"]
 name = "rustbreak"
 version = "0.1.0"
-authors = ["Marcel Müller <neikos@neikos.email>"]
 
 [dependencies]
+bincode = "0.6.0"
+fs2 = "0.2.5"
+quick-error = "1.1.0"
+serde = "0.8.12"
+
+[dev-dependencies]
+tempfile = "2.1"
