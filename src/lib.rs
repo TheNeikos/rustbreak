@@ -204,7 +204,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     }
 
     /// Flushes the Database to disk
-    pub fn flush(&mut self) -> BreakResult<()> {
+    pub fn flush(&self) -> BreakResult<()> {
         use bincode::serde::serialize;
         use bincode::SizeLimit;
         use std::io::Write;
@@ -380,7 +380,7 @@ mod test {
     #[test]
     fn test_persistence() {
         let tmpf = NamedTempFile::new().unwrap();
-        let mut db = Database::open(tmpf.path()).unwrap();
+        let db = Database::open(tmpf.path()).unwrap();
         db.insert("test", "Hello World!").unwrap();
         db.flush().unwrap();
         drop(db);
