@@ -2,6 +2,13 @@
 authors = ["Marcel Müller <neikos@neikos.email>"]
 name = "rustbreak"
 version = "0.1.0"
+description = "A single file database"
+documentation = "http://neikos.me/rustbreak/rustbreak/index.html"
+homepage = "https://github.com/TheNeikos/rustbreak"
+repository = "https://github.com/TheNeikos/rustbreak"
+readme = "README.md"
+license = "MPL-2.0"
+keywords = ["database", "simple", "fast", "daybreak", "rustbreak"]
 
 [dependencies]
 bincode = "0.6.0"
