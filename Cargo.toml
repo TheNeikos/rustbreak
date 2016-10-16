@@ -1,7 +1,7 @@
 [package]
 authors = ["Marcel Müller <neikos@neikos.email>"]
 name = "rustbreak"
-version = "0.2.0"
+version = "0.2.1"
 description = "A single file database"
 documentation = "http://neikos.me/rustbreak/rustbreak/index.html"
 homepage = "https://github.com/TheNeikos/rustbreak"
