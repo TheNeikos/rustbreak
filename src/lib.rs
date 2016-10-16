@@ -207,7 +207,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     pub fn flush(&self) -> BreakResult<()> {
         use bincode::serde::serialize;
         use bincode::SizeLimit;
-        use std::io::Write;
+        use std::io::{Write, Seek, SeekFrom};
 
         let map = match self.data.read() {
             Ok(guard) => guard,
@@ -220,8 +220,10 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
         };
 
         let buf = try!(serialize(&*map, SizeLimit::Infinite));
+        try!(file.set_len(0));
+        try!(file.seek(SeekFrom::Start(0)));
         try!(file.write(&buf));
-        try!(file.flush());
+        try!(file.sync_all());
         Ok(())
     }
 
