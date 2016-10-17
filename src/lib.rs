@@ -248,14 +248,14 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
             Err(_) => unimplemented!(), // TODO: Implement recovery?
         };
         Lock {
-            cow: map,
+            lock: map,
         }
     }
 }
 
 /// Structure representing a lock of the Database
 pub struct Lock<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
-    cow: RwLockWriteGuard<'a, HashMap<T, Vec<u8>>>,
+    lock: RwLockWriteGuard<'a, HashMap<T, Vec<u8>>>,
 }
 
 impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
@@ -267,7 +267,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
     {
         use bincode::serde::serialize;
         use bincode::SizeLimit;
-        self.cow.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
+        self.lock.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
         Ok(())
     }
 
@@ -278,17 +278,99 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
         where T: Borrow<K>, K: Hash + Eq
     {
         use bincode::serde::deserialize;
-        match self.cow.get(key.borrow()) {
+        match self.lock.get(key.borrow()) {
             Some(t) => Ok(try!(deserialize(t))),
             None => Err(BreakError::NotFound),
         }
     }
 
+    /// Starts a transaction
+    ///
+    /// See `Database::transaction` for details
+    pub fn transaction(&'a mut self) -> TransactionLock<'a, T> {
+        TransactionLock {
+            lock: self,
+            data: RwLock::new(HashMap::new()),
+        }
+    }
+
+}
+
+/// A TransactionLock that is atomic in writes and defensive
+///
+/// You generate this by calling `transaction` on a `Lock`
+/// The transactionlock does not get automatically applied when it is dropped, you have to `run` it.
+/// This allows for defensive programming where the values are only applied once it is `run`.
+pub struct TransactionLock<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
+    lock: &'a mut Lock<'a, T>,
+    data: RwLock<HashMap<T, Vec<u8>>>,
+}
+
+impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a, T> {
+    /// Insert a given Object into the Database at that key
+    ///
+    /// See `Database::insert` for details
+    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> BreakResult<()>
+        where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
+    {
+        use bincode::serde::serialize;
+        use bincode::SizeLimit;
+
+        let mut map = match self.data.write() {
+            Ok(guard) => guard,
+            Err(_) => unimplemented!(), // TODO: Implement recovery?
+        };
+
+        map.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
+
+        Ok(())
+    }
+
+    /// Retrieves an Object from the Database
+    ///
+    /// See `Database::retrieve` for details
+    pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> BreakResult<S>
+        where T: Borrow<K>, K: Hash + Eq
+    {
+        use bincode::serde::deserialize;
+        let other_map = &mut self.lock.lock;
+        if other_map.contains_key(key) {
+            match other_map.get(key.borrow()) {
+                Some(t) => Ok(try!(deserialize(t))),
+                None => Err(BreakError::NotFound),
+            }
+        } else {
+            let map = match  self.data.read() {
+                Ok(guard) => guard,
+                Err(_) => unimplemented!(), // TODO: Implement recovery?
+            };
+            match map.get(key.borrow()) {
+                Some(t) => Ok(try!(deserialize(t))),
+                None => Err(BreakError::NotFound),
+            }
+        }
+    }
+
+    /// Consumes the TransactionLock and runs it
+    pub fn run(self) -> BreakResult<()> {
+        let mut other_map = &mut self.lock.lock;
+
+        let mut map = match  self.data.write() {
+            Ok(guard) => guard,
+            Err(_) => unimplemented!(), // TODO: Implement recovery?
+        };
+
+        for (k, v) in map.drain() {
+            other_map.insert(k, v);
+        }
+
+        Ok(())
+    }
 }
 
 /// A Transaction that is atomic in writes
 ///
-/// You generate this by calling `transaction` on a `Database` or `Lock` object.
+/// You generate this by calling `transaction` on a `Database`
 /// The transaction does not get automatically applied when it is dropped, you have to `run` it.
 /// This allows for defensive programming where the values are only applied once it is `run`.
 pub struct Transaction<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
@@ -422,8 +504,18 @@ mod test {
             let a = db.clone();
             threads.push(thread::spawn(move || {
                 let mut lock = a.lock();
-                let x = lock.retrieve::<i64, str>("value").unwrap();
-                lock.insert("value", x + 1).unwrap();
+                {
+                    let mut trans = lock.transaction();
+                    let x = trans.retrieve::<i64, str>("value").unwrap();
+                    trans.insert("value", x + 1).unwrap();
+                    trans.run().unwrap();
+                }
+                {
+                    let mut trans = lock.transaction();
+                    let x = trans.retrieve::<i64, str>("value").unwrap();
+                    trans.insert("value", x - 1).unwrap();
+                    drop(trans);
+                }
             }));
         }
         for thr in threads {
