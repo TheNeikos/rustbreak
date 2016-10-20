@@ -287,7 +287,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
     /// Starts a transaction
     ///
     /// See `Database::transaction` for details
-    pub fn transaction(&'a mut self) -> TransactionLock<'a, T> {
+    pub fn transaction<'b>(&'b mut self) -> TransactionLock<'a, 'b, T> {
         TransactionLock {
             lock: self,
             data: RwLock::new(HashMap::new()),
@@ -301,12 +301,12 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
 /// You generate this by calling `transaction` on a `Lock`
 /// The transactionlock does not get automatically applied when it is dropped, you have to `run` it.
 /// This allows for defensive programming where the values are only applied once it is `run`.
-pub struct TransactionLock<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
-    lock: &'a mut Lock<'a, T>,
+pub struct TransactionLock<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> {
+    lock: &'b mut Lock<'a, T>,
     data: RwLock<HashMap<T, Vec<u8>>>,
 }
 
-impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a, T> {
+impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a, 'b, T> {
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
