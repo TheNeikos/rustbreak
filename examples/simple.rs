@@ -3,7 +3,7 @@ extern crate rustbreak;
 use rustbreak::Database;
 
 fn main() {
-    let mut db = Database::open("my_contacts").unwrap();
+    let db = Database::open("my_contacts").unwrap();
 
     db.insert("Lapfox", "lapfoxtrax.com").unwrap();
     db.insert("Rust", "github.com/rust-lang/rust").unwrap();

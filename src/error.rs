@@ -19,7 +19,15 @@ quick_error! {
         Serialize(err: ::bincode::serde::SerializeError) {
             from()
         }
+        /// Poisoned, you can recover from this by running `recover_poison` on the database
+        Poison {}
         /// This simply means your key could not be found in the database
         NotFound {}
+    }
+}
+
+impl<T> From<::std::sync::PoisonError<T>> for BreakError {
+    fn from(_: ::std::sync::PoisonError<T>) -> BreakError {
+        BreakError::Poison
     }
 }

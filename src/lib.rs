@@ -63,7 +63,7 @@ pub type BreakResult<T> = Result<T, BreakError>;
 /// ```
 /// use rustbreak::Database;
 ///
-/// let mut db = Database::open("/tmp/artists").unwrap();
+/// let db = Database::open("/tmp/artists").unwrap();
 ///
 /// let albums = vec![
 ///     ("What you do", "The Queenstons"),
@@ -92,7 +92,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// ```
     /// use rustbreak::Database;
     ///
-    /// let mut db = Database::open("/tmp/artists").unwrap();
+    /// let db = Database::open("/tmp/artists").unwrap();
     ///
     /// let albums = vec![
     ///     ("What you do", "The Queenstons"),
@@ -139,10 +139,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     {
         use bincode::serde::serialize;
         use bincode::SizeLimit;
-        let mut map = match  self.data.write() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
+        let mut map = try!(self.data.write());
         map.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
         Ok(())
     }
@@ -182,10 +179,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
         where T: Borrow<K>, K: Hash + Eq
     {
         use bincode::serde::deserialize;
-        let map = match  self.data.read() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
+        let map = try!(self.data.read());
         match map.get(key.borrow()) {
             Some(t) => Ok(try!(deserialize(t))),
             None => Err(BreakError::NotFound),
@@ -193,14 +187,11 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     }
 
     /// Checks wether a given key exists in the Database
-    pub fn contains_key<S: Deserialize, K: ?Sized>(&self, key: &K) -> bool
+    pub fn contains_key<S: Deserialize, K: ?Sized>(&self, key: &K) -> BreakResult<bool>
         where T: Borrow<K>, K: Hash + Eq
     {
-        let map = match  self.data.read() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
-        map.get(key.borrow()).is_some()
+        let map = try!(self.data.read());
+        Ok(map.get(key.borrow()).is_some())
     }
 
     /// Flushes the Database to disk
@@ -209,15 +200,9 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
         use bincode::SizeLimit;
         use std::io::{Write, Seek, SeekFrom};
 
-        let map = match self.data.read() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
+        let map = try!(self.data.read());
 
-        let mut file = match self.file.lock() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(),
-        };
+        let mut file = try!(self.file.lock());
 
         let buf = try!(serialize(&*map, SizeLimit::Infinite));
         try!(file.set_len(0));
@@ -242,14 +227,11 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// Locks the Database, making sure only the caller can change it
     ///
     /// This write locks the Database until the `Lock` has been dropped.
-    pub fn lock<'a>(&'a self) -> Lock<'a, T> {
-        let map = match self.data.write() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
-        Lock {
+    pub fn lock<'a>(&'a self) -> BreakResult<Lock<'a, T>> {
+        let map = try!(self.data.write());
+        Ok(Lock {
             lock: map,
-        }
+        })
     }
 }
 
@@ -316,10 +298,7 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
         use bincode::serde::serialize;
         use bincode::SizeLimit;
 
-        let mut map = match self.data.write() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
+        let mut map = try!(self.data.write());
 
         map.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
 
@@ -340,10 +319,7 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
                 None => Err(BreakError::NotFound),
             }
         } else {
-            let map = match  self.data.read() {
-                Ok(guard) => guard,
-                Err(_) => unimplemented!(), // TODO: Implement recovery?
-            };
+            let map =  try!(self.data.read());
             match map.get(key.borrow()) {
                 Some(t) => Ok(try!(deserialize(t))),
                 None => Err(BreakError::NotFound),
@@ -355,10 +331,7 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
     pub fn run(self) -> BreakResult<()> {
         let mut other_map = &mut self.lock.lock;
 
-        let mut map = match  self.data.write() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
+        let mut map = try!(self.data.write());
 
         for (k, v) in map.drain() {
             other_map.insert(k, v);
@@ -388,10 +361,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
         use bincode::serde::serialize;
         use bincode::SizeLimit;
 
-        let mut map = match self.data.write() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
+        let mut map = try!(self.data.write());
 
         map.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
 
@@ -405,20 +375,14 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
         where T: Borrow<K>, K: Hash + Eq
     {
         use bincode::serde::deserialize;
-        let other_map = match self.lock.read() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
+        let other_map = try!(self.lock.read());
         if other_map.contains_key(key) {
             match other_map.get(key.borrow()) {
                 Some(t) => Ok(try!(deserialize(t))),
                 None => Err(BreakError::NotFound),
             }
         } else {
-            let map = match  self.data.read() {
-                Ok(guard) => guard,
-                Err(_) => unimplemented!(), // TODO: Implement recovery?
-            };
+            let map =  try!(self.data.read());
             match map.get(key.borrow()) {
                 Some(t) => Ok(try!(deserialize(t))),
                 None => Err(BreakError::NotFound),
@@ -428,15 +392,9 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
 
     /// Consumes the Transaction and runs it
     pub fn run(self) -> BreakResult<()> {
-        let mut other_map = match  self.lock.write() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
+        let mut other_map = try!(self.lock.write());
 
-        let mut map = match  self.data.write() {
-            Ok(guard) => guard,
-            Err(_) => unimplemented!(), // TODO: Implement recovery?
-        };
+        let mut map = try!(self.data.write());
 
         for (k, v) in map.drain() {
             other_map.insert(k, v);
@@ -503,7 +461,7 @@ mod test {
             use std::thread;
             let a = db.clone();
             threads.push(thread::spawn(move || {
-                let mut lock = a.lock();
+                let mut lock = a.lock().unwrap();
                 {
                     let mut trans = lock.transaction();
                     let x = trans.retrieve::<i64, str>("value").unwrap();
