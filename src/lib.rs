@@ -91,7 +91,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// ```
     /// use rustbreak::Database;
     ///
-    /// let db = Database::open("/tmp/artists").unwrap();
+    /// let db = Database::open("/tmp/more_artists").unwrap();
     ///
     /// let albums = vec![
     ///     ("What you do", "The Queenstons"),
