@@ -25,7 +25,7 @@
 //! It uses [bincode][bincode] to compactly save data.
 //! It is thread safe and very fast due to staying in memory until flushed to disk.
 //!
-//! It can be used for short-lived processes or with long_lived ones:
+//! It can be used for short-lived processes or with long-lived ones:
 //!
 //! ```rust
 //! use rustbreak::{Database, BreakResult};
@@ -148,12 +148,11 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
 
 		let mut buf = Vec::new();
         try!(file.read_to_end(&mut buf));
-        let map : HashMap<T, Vec<u8>>;
-        if buf.len() > 0 {
-            map = try!(deserialize(&buf));
+        let map : HashMap<T, Vec<u8>> = if !buf.is_empty() {
+            try!(deserialize(&buf))
         } else {
-            map = HashMap::new();
-        }
+            HashMap::new()
+        };
 
         Ok(Database {
             file: Mutex::new(file),
@@ -250,7 +249,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// This borrows the Database mutably! Which means that during the Transaction you cannot write
     /// to it. This keeps the Database consistent. Be sure to not do anything too costly while it
     /// is borrowed.
-    pub fn transaction<'a>(&'a self) -> Transaction<'a, T> {
+    pub fn transaction(&self) -> Transaction<T> {
         Transaction {
             lock: &self.data,
             data: RwLock::new(HashMap::new()),
@@ -265,7 +264,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     ///
     /// If you panic while holding the lock it will get poisoned and subsequent calls to it will
     /// fail. You will have to re-open the Database to be able to continue accessing it.
-    pub fn lock<'a>(&'a self) -> BreakResult<Lock<'a, T>> {
+    pub fn lock(&self) -> BreakResult<Lock<T>> {
         let map = try!(self.data.write());
         Ok(Lock {
             lock: map,
@@ -316,7 +315,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
 
 }
 
-/// A TransactionLock that is atomic in writes and defensive
+/// A `TransactionLock` that is atomic in writes and defensive
 ///
 /// You generate this by calling `transaction` on a `Lock`
 /// The transactionlock does not get automatically applied when it is dropped, you have to `run` it.
