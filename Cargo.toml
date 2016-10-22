@@ -1,14 +1,14 @@
 [package]
 authors = ["Marcel Müller <neikos@neikos.email>"]
-name = "rustbreak"
-version = "0.2.1"
 description = "A single file database"
 documentation = "http://neikos.me/rustbreak/rustbreak/index.html"
 homepage = "https://github.com/TheNeikos/rustbreak"
-repository = "https://github.com/TheNeikos/rustbreak"
-readme = "README.md"
-license = "MPL-2.0"
 keywords = ["database", "simple", "fast", "daybreak", "rustbreak"]
+license = "MPL-2.0"
+name = "rustbreak"
+readme = "README.md"
+repository = "https://github.com/TheNeikos/rustbreak"
+version = "0.2.1"
 
 [dependencies]
 bincode = "0.6.0"
@@ -18,3 +18,4 @@ serde = "0.8.12"
 
 [dev-dependencies]
 tempfile = "2.1"
+lazy_static = "0.2.1"

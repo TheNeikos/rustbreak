@@ -23,8 +23,42 @@
 //!
 //! Rustbreak is an [Daybreak][daybreak] inspiried single file Database.
 //! It uses [bincode][bincode] to compactly save data.
-//! It is thread safe and very fast due to mostly staying in memory until flushed.
-//! It is possible to periodically flush or to do it manually.
+//! It is thread safe and very fast due to staying in memory until flushed to disk.
+//!
+//! It can be used for short-lived processes or with long-lived ones:
+//!
+//! ```rust
+//! use rustbreak::{Database, BreakResult};
+//!
+//! fn get_data(key: &str) -> BreakResult<String> {
+//!     let db = try!(Database::<String>::open("/tmp/database"));
+//!     db.retrieve(key)
+//! }
+//! ```
+//!
+//! ```rust
+//! # #[macro_use] extern crate lazy_static;
+//! # extern crate rustbreak;
+//! use rustbreak::{Database, BreakResult};
+//!
+//! lazy_static! {
+//!     static ref DB: Database<String> = {
+//!         Database::open("/tmp/more_data").unwrap()
+//!     };
+//! }
+//!
+//! fn get_data(key: &str) -> BreakResult<u64> {
+//!     DB.retrieve(key)
+//! }
+//!
+//! fn set_data(key: &str, d: u64) -> BreakResult<()> {
+//!     let mut lock = try!(DB.lock());
+//!     let old_data : u64 = try!(lock.retrieve(key));
+//!     lock.insert(key, d + old_data)
+//! }
+//!
+//! # fn main() {}
+//! ```
 //!
 //! [daybreak]:https://propublica.github.io/daybreak/
 //! [bincode]:https://github.com/TyOverby/bincode
@@ -114,12 +148,11 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
 
 		let mut buf = Vec::new();
         try!(file.read_to_end(&mut buf));
-        let map : HashMap<T, Vec<u8>>;
-        if buf.len() > 0 {
-            map = try!(deserialize(&buf));
+        let map : HashMap<T, Vec<u8>> = if !buf.is_empty() {
+            try!(deserialize(&buf))
         } else {
-            map = HashMap::new();
-        }
+            HashMap::new()
+        };
 
         Ok(Database {
             file: Mutex::new(file),
@@ -216,7 +249,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// This borrows the Database mutably! Which means that during the Transaction you cannot write
     /// to it. This keeps the Database consistent. Be sure to not do anything too costly while it
     /// is borrowed.
-    pub fn transaction<'a>(&'a self) -> Transaction<'a, T> {
+    pub fn transaction(&self) -> Transaction<T> {
         Transaction {
             lock: &self.data,
             data: RwLock::new(HashMap::new()),
@@ -226,7 +259,12 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// Locks the Database, making sure only the caller can change it
     ///
     /// This write locks the Database until the `Lock` has been dropped.
-    pub fn lock<'a>(&'a self) -> BreakResult<Lock<'a, T>> {
+    ///
+    /// # Panics
+    ///
+    /// If you panic while holding the lock it will get poisoned and subsequent calls to it will
+    /// fail. You will have to re-open the Database to be able to continue accessing it.
+    pub fn lock(&self) -> BreakResult<Lock<T>> {
         let map = try!(self.data.write());
         Ok(Lock {
             lock: map,
@@ -277,7 +315,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
 
 }
 
-/// A TransactionLock that is atomic in writes and defensive
+/// A `TransactionLock` that is atomic in writes and defensive
 ///
 /// You generate this by calling `transaction` on a `Lock`
 /// The transactionlock does not get automatically applied when it is dropped, you have to `run` it.
