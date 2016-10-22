@@ -260,6 +260,11 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// Locks the Database, making sure only the caller can change it
     ///
     /// This write locks the Database until the `Lock` has been dropped.
+    ///
+    /// # Panics
+    ///
+    /// If you panic while holding the lock it will get poisoned and subsequent calls to it will
+    /// fail. You will have to re-open the Database to be able to continue accessing it.
     pub fn lock<'a>(&'a self) -> BreakResult<Lock<'a, T>> {
         let map = try!(self.data.write());
         Ok(Lock {
