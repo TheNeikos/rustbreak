@@ -23,8 +23,42 @@
 //!
 //! Rustbreak is an [Daybreak][daybreak] inspiried single file Database.
 //! It uses [bincode][bincode] to compactly save data.
-//! It is thread safe and very fast due to mostly staying in memory until flushed.
-//! It is possible to periodically flush or to do it manually.
+//! It is thread safe and very fast due to staying in memory until flushed to disk.
+//!
+//! It can be used for short-lived processes or with long_lived ones:
+//!
+//! ```rust
+//! use rustbreak::{Database, BreakResult};
+//!
+//! fn get_data(key: &str) -> BreakResult<String> {
+//!     let db = try!(Database::<String>::open("/tmp/database"));
+//!     db.retrieve(key)
+//! }
+//! ```
+//!
+//! ```rust
+//! # #[macro_use] extern crate lazy_static;
+//! # extern crate rustbreak;
+//! use rustbreak::{Database, BreakResult};
+//!
+//! lazy_static! {
+//!     static ref DB: Database<String> = {
+//!         Database::open("/tmp/more_data").unwrap()
+//!     };
+//! }
+//!
+//! fn get_data(key: &str) -> BreakResult<u64> {
+//!     DB.retrieve(key)
+//! }
+//!
+//! fn set_data(key: &str, d: u64) -> BreakResult<()> {
+//!     let mut lock = try!(DB.lock());
+//!     let old_data : u64 = try!(lock.retrieve(key));
+//!     lock.insert(key, d + old_data)
+//! }
+//!
+//! # fn main() {}
+//! ```
 //!
 //! [daybreak]:https://propublica.github.io/daybreak/
 //! [bincode]:https://github.com/TyOverby/bincode
