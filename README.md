@@ -53,6 +53,15 @@ fn main() {
 }
 ```
 
+How it works
+------------
+
+Internally the Database holds a Hashmap behind a RwLock.
+This Hashmap is then written to/read from and safely casted to the requested
+type. This works thanks to encoding/decoding traits.
+
+
+
 [doc]:http://neikos.me/rustbreak/rustbreak/index.html
 [Daybreak]:https://propublica.github.io/daybreak/
 
