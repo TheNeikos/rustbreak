@@ -28,9 +28,9 @@
 //! It can be used for short-lived processes or with long-lived ones:
 //!
 //! ```rust
-//! use rustbreak::{Database, BreakResult};
+//! use rustbreak::{Database, Result};
 //!
-//! fn get_data(key: &str) -> BreakResult<String> {
+//! fn get_data(key: &str) -> Result<String> {
 //!     let db = try!(Database::<String>::open("/tmp/database"));
 //!     db.retrieve(key)
 //! }
@@ -39,7 +39,7 @@
 //! ```rust
 //! # #[macro_use] extern crate lazy_static;
 //! # extern crate rustbreak;
-//! use rustbreak::{Database, BreakResult};
+//! use rustbreak::{Database, Result};
 //!
 //! lazy_static! {
 //!     static ref DB: Database<String> = {
@@ -47,11 +47,11 @@
 //!     };
 //! }
 //!
-//! fn get_data(key: &str) -> BreakResult<u64> {
+//! fn get_data(key: &str) -> Result<u64> {
 //!     DB.retrieve(key)
 //! }
 //!
-//! fn set_data(key: &str, d: u64) -> BreakResult<()> {
+//! fn set_data(key: &str, d: u64) -> Result<()> {
 //!     let mut lock = try!(DB.lock());
 //!     let old_data : u64 = try!(lock.retrieve(key));
 //!     lock.insert(key, d + old_data)
@@ -83,7 +83,7 @@ use serde::{Serialize, Deserialize};
 pub use error::BreakError;
 
 /// Alias for our Result Type
-pub type BreakResult<T> = Result<T, BreakError>;
+pub type Result<T> = ::std::result::Result<T, BreakError>;
 
 /// The Database structure
 ///
@@ -137,9 +137,9 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// }
     /// db.flush().unwrap();
     /// ```
-    pub fn open<P: AsRef<Path>>(path: P) -> BreakResult<Database<T>> {
-        use std::fs::OpenOptions;
-        use fs2::FileExt;
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Database<T>> {
+		use std::fs::OpenOptions;
+		use fs2::FileExt;
         use std::io::Read;
         use bincode::serde::deserialize;
 
@@ -166,7 +166,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     ///
     /// The Object has to be serializable. For best results do not
     /// put in anything that is expensive to clone.
-    pub fn insert<S: Serialize + 'static, K: ?Sized>(&self, key: &K, obj: S) -> BreakResult<()>
+    pub fn insert<S: Serialize + 'static, K: ?Sized>(&self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
         use bincode::serde::serialize;
@@ -207,7 +207,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     ///     _ => panic!("Was deserialized?"),
     /// }
     /// ```
-    pub fn retrieve<S: Deserialize, K: ?Sized>(&self, key: &K) -> BreakResult<S>
+    pub fn retrieve<S: Deserialize, K: ?Sized>(&self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
         use bincode::serde::deserialize;
@@ -219,7 +219,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     }
 
     /// Checks wether a given key exists in the Database
-    pub fn contains_key<S: Deserialize, K: ?Sized>(&self, key: &K) -> BreakResult<bool>
+    pub fn contains_key<S: Deserialize, K: ?Sized>(&self, key: &K) -> Result<bool>
         where T: Borrow<K>, K: Hash + Eq
     {
         let map = try!(self.data.read());
@@ -227,7 +227,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     }
 
     /// Flushes the Database to disk
-    pub fn flush(&self) -> BreakResult<()> {
+    pub fn flush(&self) -> Result<()> {
         use bincode::serde::serialize;
         use bincode::SizeLimit;
         use std::io::{Write, Seek, SeekFrom};
@@ -264,7 +264,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     ///
     /// If you panic while holding the lock it will get poisoned and subsequent calls to it will
     /// fail. You will have to re-open the Database to be able to continue accessing it.
-    pub fn lock(&self) -> BreakResult<Lock<T>> {
+    pub fn lock(&self) -> Result<Lock<T>> {
         let map = try!(self.data.write());
         Ok(Lock {
             lock: map,
@@ -281,7 +281,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
-    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> BreakResult<()>
+    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
         use bincode::serde::serialize;
@@ -293,7 +293,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
     /// Retrieves an Object from the Database
     ///
     /// See `Database::retrieve` for details
-    pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> BreakResult<S>
+    pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
         use bincode::serde::deserialize;
@@ -329,7 +329,7 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
-    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> BreakResult<()>
+    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
         use bincode::serde::serialize;
@@ -345,7 +345,7 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
     /// Retrieves an Object from the Database
     ///
     /// See `Database::retrieve` for details
-    pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> BreakResult<S>
+    pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
         use bincode::serde::deserialize;
@@ -365,7 +365,7 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
     }
 
     /// Consumes the TransactionLock and runs it
-    pub fn run(self) -> BreakResult<()> {
+    pub fn run(self) -> Result<()> {
         let mut other_map = &mut self.lock.lock;
 
         let mut map = try!(self.data.write());
@@ -392,7 +392,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
-    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> BreakResult<()>
+    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
         use bincode::serde::serialize;
@@ -408,7 +408,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
     /// Retrieves an Object from the Database
     ///
     /// See `Database::retrieve` for details
-    pub fn retrieve<S: Deserialize, K: ?Sized>(&self, key: &K) -> BreakResult<S>
+    pub fn retrieve<S: Deserialize, K: ?Sized>(&self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
         use bincode::serde::deserialize;
@@ -428,7 +428,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
     }
 
     /// Consumes the Transaction and runs it
-    pub fn run(self) -> BreakResult<()> {
+    pub fn run(self) -> Result<()> {
         let mut other_map = try!(self.lock.write());
 
         let mut map = try!(self.data.write());
