@@ -6,9 +6,9 @@ quick_error! {
     pub enum BreakError {
         /// An error returned when doing file operations, this might happen by opening, closing,
         /// locking or flushing
-		Io(err: ::std::io::Error) {
-			from()
-		}
+        Io(err: ::std::io::Error) {
+            from()
+        }
         /// This error happens if Bincode cannot deserialize a given file. If you get this error
         /// check your database is not corrupt. (This includes non-empty files **not** created by
         /// RustBreak!

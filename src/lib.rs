@@ -104,7 +104,7 @@ pub type BreakResult<T> = Result<T, BreakError>;
 /// ];
 ///
 /// for (album, artist) in albums {
-/// 	db.insert(&format!("album_{}",album), artist).unwrap();
+///     db.insert(&format!("album_{}",album), artist).unwrap();
 /// }
 /// db.flush().unwrap();
 /// ```
@@ -133,20 +133,20 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// ];
     ///
     /// for (album, artist) in albums {
-    /// 	db.insert(&format!("album_{}",album), artist).unwrap();
+    ///     db.insert(&format!("album_{}",album), artist).unwrap();
     /// }
     /// db.flush().unwrap();
     /// ```
     pub fn open<P: AsRef<Path>>(path: P) -> BreakResult<Database<T>> {
-		use std::fs::OpenOptions;
-		use fs2::FileExt;
+        use std::fs::OpenOptions;
+        use fs2::FileExt;
         use std::io::Read;
         use bincode::serde::deserialize;
 
-		let mut file = try!(OpenOptions::new().read(true).write(true).create(true).open(path));
-		try!(file.try_lock_exclusive());
+        let mut file = try!(OpenOptions::new().read(true).write(true).create(true).open(path));
+        try!(file.try_lock_exclusive());
 
-		let mut buf = Vec::new();
+        let mut buf = Vec::new();
         try!(file.read_to_end(&mut buf));
         let map : HashMap<T, Vec<u8>> = if !buf.is_empty() {
             try!(deserialize(&buf))
