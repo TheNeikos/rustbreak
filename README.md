@@ -5,14 +5,25 @@ Rustbreak
 
 **[Documentation][doc]**
 
-Rustbreak is an [Daybreak](https://propublica.github.io/daybreak/) inspired file
+Rustbreak is an [Daybreak] inspired file
 database. It is meant to be fast and simple to use.
+
+When to use it
+--------------
+
+This library started out because of a need to be able to quickly write an
+application in rust that needed some persistence while still being able to write
+arbitrary data to it.
+
+In Ruby there is [Daybreak] however for Rust there was no similar crate, until
+now!
 
 Features
 --------
 
 - Simple To Use, Fast, Secure
 - Threadsafe
+- Key/Value Storage
 
 Usage
 -----
@@ -43,3 +54,5 @@ fn main() {
 ```
 
 [doc]:http://neikos.me/rustbreak/rustbreak/index.html
+[Daybreak]:https://propublica.github.io/daybreak/
+
