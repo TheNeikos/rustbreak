@@ -26,6 +26,7 @@ Features
 - Simple To Use, Fast, Secure
 - Threadsafe
 - Key/Value Storage
+- bincode or yaml storage
 
 Usage
 -----
@@ -53,6 +54,21 @@ fn main() {
     println!("You can find Rust at: {}", rust);
     db.flush().unwrap();
 }
+```
+
+### Yaml
+
+If you would like to use yaml instead of bincode to perhaps read or modify the
+database in an editor you can use it like this:
+
+- Disable default features
+- Specify yaml as a feature
+
+```toml
+[dependencies.rustbreak]
+version = "1"
+default-features = false
+features = ["yaml"]
 ```
 
 How it works

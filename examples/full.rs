@@ -41,4 +41,6 @@ fn main() {
     for al in get_albums("The Queenstons").unwrap() {
         println!("{}", al);
     }
+
+    DB.flush().unwrap();
 }

@@ -12,11 +12,15 @@ quick_error! {
         /// This error happens if Bincode cannot deserialize a given file. If you get this error
         /// check your database is not corrupt. (This includes non-empty files **not** created by
         /// RustBreak!
-        Deserialize(err: ::bincode::serde::DeserializeError) {
+        Deserialize(err: ::enc::DeserializeError) {
             from()
         }
         /// This error happens if bincode cannot serialize the given type at runtime
-        Serialize(err: ::bincode::serde::SerializeError) {
+        Serialize(err: ::enc::SerializeError) {
+            from()
+        }
+        /// Error when reading a formatted String
+        Format(err: ::std::string::FromUtf8Error) {
             from()
         }
         /// Poisoned, you can recover from this by running `recover_poison` on the database

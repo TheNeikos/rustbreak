@@ -22,7 +22,7 @@
 //! # Rustbreak
 //!
 //! Rustbreak is an [Daybreak][daybreak] inspiried single file Database.
-//! It uses [bincode][bincode] to compactly save data.
+//! It uses [bincode][bincode] or yaml to compactly save data.
 //! It is thread safe and very fast due to staying in memory until flushed to disk.
 //!
 //! It can be used for short-lived processes or with long-lived ones:
@@ -66,10 +66,18 @@
 extern crate serde;
 #[macro_use] extern crate quick_error;
 extern crate fs2;
-extern crate bincode;
+#[cfg(feature = "bin")] extern crate bincode;
+#[cfg(feature = "yaml")] extern crate serde_yaml;
 #[cfg(test)] extern crate tempfile;
 
 mod error;
+#[cfg(feature = "bin")] mod bincode_enc;
+#[cfg(feature = "yaml")] mod yaml_enc;
+
+mod enc {
+    #[cfg(feature = "bin")] pub use bincode_enc::*;
+    #[cfg(feature = "yaml")] pub use yaml_enc::*;
+}
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -111,7 +119,7 @@ pub type Result<T> = ::std::result::Result<T, BreakError>;
 #[derive(Debug)]
 pub struct Database<T: Serialize + Deserialize + Eq + Hash> {
     file: Mutex<File>,
-    data: RwLock<HashMap<T, Vec<u8>>>,
+    data: RwLock<HashMap<T, enc::Repr>>,
 }
 
 impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
@@ -141,14 +149,14 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
 		use std::fs::OpenOptions;
 		use fs2::FileExt;
         use std::io::Read;
-        use bincode::serde::deserialize;
+        use enc::deserialize;
 
         let mut file = try!(OpenOptions::new().read(true).write(true).create(true).open(path));
         try!(file.try_lock_exclusive());
 
         let mut buf = Vec::new();
         try!(file.read_to_end(&mut buf));
-        let map : HashMap<T, Vec<u8>> = if !buf.is_empty() {
+        let map : HashMap<T, enc::Repr> = if !buf.is_empty() {
             try!(deserialize(&buf))
         } else {
             HashMap::new()
@@ -169,10 +177,9 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     pub fn insert<S: Serialize + 'static, K: ?Sized>(&self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
-        use bincode::serde::serialize;
-        use bincode::SizeLimit;
+        use enc::serialize;
         let mut map = try!(self.data.write());
-        map.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
+        map.insert(key.to_owned(), try!(serialize(&obj)));
         Ok(())
     }
 
@@ -203,14 +210,14 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// }
     ///
     /// match db.retrieve::<Vec<String>, str>("num_1") {
-    ///     Err(BreakError::Deserialize(..)) => {},
+    ///     Err(_) => {},
     ///     _ => panic!("Was deserialized?"),
     /// }
     /// ```
     pub fn retrieve<S: Deserialize, K: ?Sized>(&self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
-        use bincode::serde::deserialize;
+        use enc::deserialize;
         let map = try!(self.data.read());
         match map.get(key.borrow()) {
             Some(t) => Ok(try!(deserialize(t))),
@@ -228,18 +235,17 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
 
     /// Flushes the Database to disk
     pub fn flush(&self) -> Result<()> {
-        use bincode::serde::serialize;
-        use bincode::SizeLimit;
+        use enc::serialize;
         use std::io::{Write, Seek, SeekFrom};
 
         let map = try!(self.data.read());
 
         let mut file = try!(self.file.lock());
 
-        let buf = try!(serialize(&*map, SizeLimit::Infinite));
+        let buf = try!(serialize(&*map));
         try!(file.set_len(0));
         try!(file.seek(SeekFrom::Start(0)));
-        try!(file.write(&buf));
+        try!(file.write(&buf.as_ref()));
         try!(file.sync_all());
         Ok(())
     }
@@ -274,7 +280,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
 
 /// Structure representing a lock of the Database
 pub struct Lock<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
-    lock: RwLockWriteGuard<'a, HashMap<T, Vec<u8>>>,
+    lock: RwLockWriteGuard<'a, HashMap<T, enc::Repr>>,
 }
 
 impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
@@ -284,9 +290,8 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
     pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
-        use bincode::serde::serialize;
-        use bincode::SizeLimit;
-        self.lock.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
+        use enc::serialize;
+        self.lock.insert(key.to_owned(), try!(serialize(&obj)));
         Ok(())
     }
 
@@ -296,7 +301,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
     pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
-        use bincode::serde::deserialize;
+        use enc::deserialize;
         match self.lock.get(key.borrow()) {
             Some(t) => Ok(try!(deserialize(t))),
             None => Err(BreakError::NotFound),
@@ -322,7 +327,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
 /// This allows for defensive programming where the values are only applied once it is `run`.
 pub struct TransactionLock<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> {
     lock: &'b mut Lock<'a, T>,
-    data: RwLock<HashMap<T, Vec<u8>>>,
+    data: RwLock<HashMap<T, enc::Repr>>,
 }
 
 impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a, 'b, T> {
@@ -332,12 +337,11 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
     pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
-        use bincode::serde::serialize;
-        use bincode::SizeLimit;
+        use enc::serialize;
 
         let mut map = try!(self.data.write());
 
-        map.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
+        map.insert(key.to_owned(), try!(serialize(&obj)));
 
         Ok(())
     }
@@ -348,7 +352,7 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
     pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
-        use bincode::serde::deserialize;
+        use enc::deserialize;
         let other_map = &mut self.lock.lock;
         if other_map.contains_key(key) {
             match other_map.get(key.borrow()) {
@@ -384,8 +388,8 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
 /// The transaction does not get automatically applied when it is dropped, you have to `run` it.
 /// This allows for defensive programming where the values are only applied once it is `run`.
 pub struct Transaction<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
-    lock: &'a RwLock<HashMap<T, Vec<u8>>>,
-    data: RwLock<HashMap<T, Vec<u8>>>,
+    lock: &'a RwLock<HashMap<T, enc::Repr>>,
+    data: RwLock<HashMap<T, enc::Repr>>,
 }
 
 impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
@@ -395,12 +399,11 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
     pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
-        use bincode::serde::serialize;
-        use bincode::SizeLimit;
+        use enc::serialize;
 
         let mut map = try!(self.data.write());
 
-        map.insert(key.to_owned(), try!(serialize(&obj, SizeLimit::Infinite)));
+        map.insert(key.to_owned(), try!(serialize(&obj)));
 
         Ok(())
     }
@@ -411,7 +414,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
     pub fn retrieve<S: Deserialize, K: ?Sized>(&self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
-        use bincode::serde::deserialize;
+        use enc::deserialize;
         let other_map = try!(self.lock.read());
         if other_map.contains_key(key) {
             match other_map.get(key.borrow()) {
