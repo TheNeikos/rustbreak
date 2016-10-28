@@ -5,8 +5,10 @@ Rustbreak
 
 **[Documentation][doc]**
 
-Rustbreak is an [Daybreak] inspired file
-database. It is meant to be fast and simple to use.
+Rustbreak is an [Daybreak] inspired self-contained file
+database. It is meant to be fast and simple to use. You add it to your
+application and it should just work for you. The only thing you will have to
+take care of is saving.
 
 When to use it
 --------------
