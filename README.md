@@ -2,6 +2,7 @@ Rustbreak
 =========
 
 [![Build Status](https://travis-ci.org/TheNeikos/rustbreak.svg?branch=master)](https://travis-ci.org/TheNeikos/rustbreak)
+[![Crates Link](https://img.shields.io/crates/v/rustbreak.svg)](https://crates.io/crates/rustbreak)
 
 **[Documentation][doc]**
 
