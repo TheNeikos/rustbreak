@@ -22,7 +22,7 @@
 //! # Rustbreak
 //!
 //! Rustbreak is an [Daybreak][daybreak] inspiried single file Database.
-//! It uses [bincode][bincode] to compactly save data.
+//! It uses [bincode][bincode] or yaml to compactly save data.
 //! It is thread safe and very fast due to staying in memory until flushed to disk.
 //!
 //! It can be used for short-lived processes or with long-lived ones:
