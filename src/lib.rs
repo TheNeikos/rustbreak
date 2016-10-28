@@ -21,7 +21,7 @@
 
 //! # Rustbreak
 //!
-//! Rustbreak is an [Daybreak][daybreak] inspiried single file Database.
+//! Rustbreak is a [Daybreak][daybreak] inspiried single file Database.
 //! It uses [bincode][bincode] or yaml to compactly save data.
 //! It is thread safe and very fast due to staying in memory until flushed to disk.
 //!
@@ -96,7 +96,7 @@ pub type Result<T> = ::std::result::Result<T, BreakError>;
 /// The Database structure
 ///
 /// # Notes
-/// One should need to create this once for each Database instance.
+/// One should create this once for each Database instance.
 /// Subsequent tries to open the same file should fail or worse, could break the database.
 ///
 /// # Example
@@ -172,8 +172,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     ///
     /// This will overwrite any existing objects.
     ///
-    /// The Object has to be serializable. For best results do not
-    /// put in anything that is expensive to clone.
+    /// The Object has to be serializable.
     pub fn insert<S: Serialize + 'static, K: ?Sized>(&self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
@@ -188,7 +187,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     /// # Errors
     ///
     /// This will return an `Err(BreakError::NotFound)` if there is no key behind the object.
-    /// If you tried to request something that it can't be serialized to then
+    /// If you tried to request something that can't be serialized to then
     /// `Err(BreakError::Deserialize)` will be returned.
     ///
     /// # Example
@@ -252,9 +251,9 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
 
     /// Starts a transaction
     ///
-    /// This borrows the Database mutably! Which means that during the Transaction you cannot write
-    /// to it. This keeps the Database consistent. Be sure to not do anything too costly while it
-    /// is borrowed.
+    /// A transaction passes through reads but caches writes. This means that if changes do happen
+    /// they are processed at the same time. To run them you have to call `run` on the
+    /// `Transaction` object.
     pub fn transaction(&self) -> Transaction<T> {
         Transaction {
             lock: &self.data,
@@ -264,7 +263,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
 
     /// Locks the Database, making sure only the caller can change it
     ///
-    /// This write locks the Database until the `Lock` has been dropped.
+    /// This write-locks the Database until the `Lock` has been dropped.
     ///
     /// # Panics
     ///
