@@ -4,7 +4,7 @@ rust:
 - nightly
 - beta
 - stable
-- 1.8.0
+- 1.9.0
 before_script:
 - |
   pip install 'travis-cargo<0.2' --user &&
@@ -13,6 +13,8 @@ script:
 - |
   travis-cargo build &&
   travis-cargo test &&
+  rm /tmp/*
+  travis-cargo test -- --no-default-features --features yaml &&
   travis-cargo bench &&
   travis-cargo --only stable doc
 after_success:
