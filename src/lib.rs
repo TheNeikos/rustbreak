@@ -182,6 +182,15 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
         Ok(())
     }
 
+    /// Remove an Object at that key
+    pub fn delete<K: ?Sized>(&self, key: &K) -> Result<()>
+        where T: Borrow<K>, K: Hash + Eq
+    {
+        let mut map = try!(self.data.write());
+        map.remove(key.to_owned());
+        Ok(())
+    }
+
     /// Retrieves an Object from the Database
     ///
     /// # Errors
@@ -445,8 +454,19 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
 
 #[cfg(test)]
 mod test {
-    use super::Database;
+    use super::{Database,BreakError};
     use tempfile::NamedTempFile;
+
+    #[test]
+    fn insert_and_delete() {
+        let tmpf = NamedTempFile::new().unwrap();
+        let db = Database::open(tmpf.path()).unwrap();
+
+        db.insert("test", "Hello World!").unwrap();
+        db.delete("test").unwrap();
+        let hello : Result<String,BreakError> = db.retrieve("test");
+        assert!(hello.is_err())
+    }
 
     #[test]
     fn simple_insert_and_retrieve() {
