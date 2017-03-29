@@ -11,11 +11,11 @@ repository = "https://github.com/TheNeikos/rustbreak"
 version = "1.1.0"
 
 [dependencies]
-bincode = { version = "0.6", optional = true }
+bincode = { version = "1.0.0-alpha6", optional = true }
 serde_yaml = { version = "0.6", optional = true }
 fs2 = "0.4"
 quick-error = "1.1.0"
-serde = "0.8"
+serde = "0.9"
 
 [dev-dependencies]
 tempfile = "2.1"
