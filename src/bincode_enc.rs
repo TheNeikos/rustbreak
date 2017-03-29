@@ -1,19 +1,17 @@
 use serde::{Serialize, Deserialize};
-use bincode::serde::{serialize as bin_serialize, deserialize as bin_deserialize};
-use bincode::serde::{SerializeResult, DeserializeResult};
-use bincode::SizeLimit;
+use bincode::{self, serialize as bin_serialize, deserialize as bin_deserialize};
 
 pub type Repr = Vec<u8>;
-pub use bincode::serde::DeserializeError;
-pub use bincode::serde::SerializeError;
+pub type SerializeError = bincode::Error;
+pub type DeserializeError = ();
 
-pub fn serialize<T>(value: &T) -> SerializeResult<Vec<u8>>
+pub fn serialize<T>(value: &T) -> bincode::Result<Vec<u8>>
     where T: Serialize
 {
-    bin_serialize(value, SizeLimit::Infinite)
+    bin_serialize(value, bincode::Infinite)
 }
 
-pub fn deserialize<T>(bytes: &[u8]) -> DeserializeResult<T>
+pub fn deserialize<T>(bytes: &[u8]) -> Result<T, bincode::Error>
     where T: Deserialize
 {
     bin_deserialize(bytes)
