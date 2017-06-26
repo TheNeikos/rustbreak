@@ -1,4 +1,5 @@
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_yaml::Result as YamlResult;
 use serde_yaml::Error;
 
@@ -13,7 +14,7 @@ pub fn serialize<T>(value: &T) -> YamlResult<String>
 }
 
 pub fn deserialize<T, I: AsRef<[u8]>>(bytes: &I) -> Result<T, ::error::BreakError>
-    where T: Deserialize
+    where T: DeserializeOwned
 {
 
     let string = try!(String::from_utf8(bytes.as_ref().to_vec()));

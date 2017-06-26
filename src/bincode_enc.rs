@@ -11,8 +11,8 @@ pub fn serialize<T>(value: &T) -> bincode::Result<Vec<u8>>
     bin_serialize(value, bincode::Infinite)
 }
 
-pub fn deserialize<T>(bytes: &[u8]) -> Result<T, bincode::Error>
-    where T: Deserialize
+pub fn deserialize<'a, T>(bytes: &'a [u8]) -> Result<T, bincode::Error>
+    where T: Deserialize<'a>
 {
     bin_deserialize(bytes)
 }

@@ -86,7 +86,8 @@ use std::sync::{RwLock, RwLockWriteGuard, Mutex};
 use std::hash::Hash;
 use std::borrow::Borrow;
 
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 pub use error::BreakError;
 
@@ -117,12 +118,12 @@ pub type Result<T> = ::std::result::Result<T, BreakError>;
 /// db.flush().unwrap();
 /// ```
 #[derive(Debug)]
-pub struct Database<T: Serialize + Deserialize + Eq + Hash> {
+pub struct Database<T: Serialize + DeserializeOwned + Eq + Hash> {
     file: Mutex<File>,
     data: RwLock<HashMap<T, enc::Repr>>,
 }
 
-impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
+impl<T: Serialize + DeserializeOwned + Eq + Hash> Database<T> {
     /// Opens a new Database
     ///
     /// This might fail if the file is non-empty and was not created by RustBreak, or if the file
@@ -222,7 +223,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     ///     _ => panic!("Was deserialized?"),
     /// }
     /// ```
-    pub fn retrieve<S: Deserialize, K: ?Sized>(&self, key: &K) -> Result<S>
+    pub fn retrieve<S: DeserializeOwned, K: ?Sized>(&self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
         use enc::deserialize;
@@ -234,7 +235,7 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
     }
 
     /// Checks wether a given key exists in the Database
-    pub fn contains_key<S: Deserialize, K: ?Sized>(&self, key: &K) -> Result<bool>
+    pub fn contains_key<S: DeserializeOwned, K: ?Sized>(&self, key: &K) -> Result<bool>
         where T: Borrow<K>, K: Hash + Eq
     {
         let map = try!(self.data.read());
@@ -287,11 +288,11 @@ impl<T: Serialize + Deserialize + Eq + Hash> Database<T> {
 }
 
 /// Structure representing a lock of the Database
-pub struct Lock<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
+pub struct Lock<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> {
     lock: RwLockWriteGuard<'a, HashMap<T, enc::Repr>>,
 }
 
-impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
+impl<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> Lock<'a, T> {
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
@@ -306,7 +307,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
     /// Retrieves an Object from the Database
     ///
     /// See `Database::retrieve` for details
-    pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> Result<S>
+    pub fn retrieve<S: DeserializeOwned, K: ?Sized>(&mut self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
         use enc::deserialize;
@@ -333,12 +334,12 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Lock<'a, T> {
 /// You generate this by calling `transaction` on a `Lock`
 /// The transactionlock does not get automatically applied when it is dropped, you have to `run` it.
 /// This allows for defensive programming where the values are only applied once it is `run`.
-pub struct TransactionLock<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> {
+pub struct TransactionLock<'a: 'b, 'b, T: Serialize + DeserializeOwned + Eq + Hash + 'a> {
     lock: &'b mut Lock<'a, T>,
     data: RwLock<HashMap<T, enc::Repr>>,
 }
 
-impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a, 'b, T> {
+impl<'a: 'b, 'b, T: Serialize + DeserializeOwned + Eq + Hash + 'a> TransactionLock<'a, 'b, T> {
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
@@ -357,7 +358,7 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
     /// Retrieves an Object from the Database
     ///
     /// See `Database::retrieve` for details
-    pub fn retrieve<S: Deserialize, K: ?Sized>(&mut self, key: &K) -> Result<S>
+    pub fn retrieve<S: DeserializeOwned, K: ?Sized>(&mut self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
         use enc::deserialize;
@@ -395,12 +396,12 @@ impl<'a: 'b, 'b, T: Serialize + Deserialize + Eq + Hash + 'a> TransactionLock<'a
 /// You generate this by calling `transaction` on a `Database`
 /// The transaction does not get automatically applied when it is dropped, you have to `run` it.
 /// This allows for defensive programming where the values are only applied once it is `run`.
-pub struct Transaction<'a, T: Serialize + Deserialize + Eq + Hash + 'a> {
+pub struct Transaction<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> {
     lock: &'a RwLock<HashMap<T, enc::Repr>>,
     data: RwLock<HashMap<T, enc::Repr>>,
 }
 
-impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
+impl<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> Transaction<'a, T> {
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
@@ -419,7 +420,7 @@ impl<'a, T: Serialize + Deserialize + Eq + Hash + 'a> Transaction<'a, T> {
     /// Retrieves an Object from the Database
     ///
     /// See `Database::retrieve` for details
-    pub fn retrieve<S: Deserialize, K: ?Sized>(&self, key: &K) -> Result<S>
+    pub fn retrieve<S: DeserializeOwned, K: ?Sized>(&self, key: &K) -> Result<S>
         where T: Borrow<K>, K: Hash + Eq
     {
         use enc::deserialize;
