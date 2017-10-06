@@ -174,7 +174,7 @@ impl<T: Serialize + DeserializeOwned + Eq + Hash> Database<T> {
     /// This will overwrite any existing objects.
     ///
     /// The Object has to be serializable.
-    pub fn insert<S: Serialize + 'static, K: ?Sized>(&self, key: &K, obj: S) -> Result<()>
+    pub fn insert<S: Serialize, K: ?Sized>(&self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
         use enc::serialize;
@@ -296,7 +296,7 @@ impl<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> Lock<'a, T> {
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
-    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
+    pub fn insert<S: Serialize, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
         use enc::serialize;
@@ -343,7 +343,7 @@ impl<'a: 'b, 'b, T: Serialize + DeserializeOwned + Eq + Hash + 'a> TransactionLo
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
-    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
+    pub fn insert<S: Serialize, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
         use enc::serialize;
@@ -405,7 +405,7 @@ impl<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> Transaction<'a, T> {
     /// Insert a given Object into the Database at that key
     ///
     /// See `Database::insert` for details
-    pub fn insert<S: Serialize + 'static, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
+    pub fn insert<S: Serialize, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
         where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
     {
         use enc::serialize;
@@ -477,6 +477,16 @@ mod test {
         db.insert("test", "Hello World!").unwrap();
         let hello : String = db.retrieve("test").unwrap();
         assert_eq!(hello, "Hello World!");
+    }
+
+    #[test]
+    fn simple_insert_and_retrieve_borrow() {
+        let tmpf = NamedTempFile::new().unwrap();
+        let db = Database::open(tmpf.path()).unwrap();
+
+        db.insert("test", &25).unwrap();
+        let hello : u32 = db.retrieve("test").unwrap();
+        assert_eq!(hello, 25);
     }
 
     #[test]
