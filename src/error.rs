@@ -1,3 +1,6 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 quick_error! {
     /// The Error type exported by BreakError, usually you only need to check against NotFound,
@@ -9,24 +12,16 @@ quick_error! {
         Io(err: ::std::io::Error) {
             from()
         }
-        /// This error happens if Bincode cannot deserialize a given file. If you get this error
-        /// check your database is not corrupt. (This includes non-empty files **not** created by
-        /// RustBreak!
-        Deserialize(err: ::enc::DeserializeError) {
-            from()
-        }
-        /// This error happens if bincode cannot serialize the given type at runtime
-        Serialize(err: ::enc::SerializeError) {
-            from()
-        }
         /// Error when reading a formatted String
         Format(err: ::std::string::FromUtf8Error) {
             from()
         }
-        /// Poisoned, you can recover from this by running `recover_poison` on the database
-        Poison {}
-        /// This simply means your key could not be found in the database
-        NotFound {}
+
+        Serialize { }
+
+        Deserialize { }
+
+        Poison { }
     }
 }
 
@@ -35,3 +30,5 @@ impl<T> From<::std::sync::PoisonError<T>> for BreakError {
         BreakError::Poison
     }
 }
+
+pub type BreakResult<T> = Result<T, BreakError>;

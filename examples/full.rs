@@ -1,46 +1,51 @@
 extern crate rustbreak;
-#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate serde_derive;
 
-use rustbreak::{Database, Result as BreakResult};
+use rustbreak::Database;
 
-lazy_static! {
-    static ref DB: Database<String> = {
-        Database::open("music").unwrap()
-    };
+#[derive(Eq, PartialEq, Debug, Serialize, Deserialize, Clone)]
+enum Country {
+    Italy, UnitedKingdom
 }
 
-type Artist = String;
-type Album = String;
-type AlbumArtist = (Album, Artist);
-
-fn add_album_to_artist(name: Artist, album: Album) -> BreakResult<()> {
-    let mut lock = try!(DB.lock());
-    let mut map: Vec<Album> = lock.retrieve(&name).unwrap_or_else(|_| vec![]);
-    map.push(album);
-    try!(lock.insert(&name, map));
-    Ok(())
-}
-
-fn get_albums(name: &str) -> BreakResult<Vec<Album>> {
-    DB.retrieve(name)
+#[derive(Eq, PartialEq, Debug, Serialize, Deserialize, Clone)]
+struct Person {
+    name: String,
+    country: Country,
 }
 
 fn main() {
-    let albums = [
-        ("The Queenstons", "What you do EP"),
-        ("The Queenstons", "Figurehead"),
-        ("The Queenstons", "Undertones"),
-        ("System of a Down", "Toxicity II"),
-        ("System of a Down", "Mezmerize"),
-    ];
+    let db = Database::from_path("test.yaml").unwrap().with_deser(rustbreak::deser::Yaml);
 
-    for &(artist, album) in albums.iter() {
-        add_album_to_artist(artist.to_owned(), album.to_owned()).unwrap();
-    }
+    println!("Writing to Database");
+    db.write(|mut db| {
+        db.insert("john".into(), Person {
+            name: String::from("John Andersson"),
+            country: Country::Italy
+        });
+        db.insert("fred".into(), Person {
+            name: String::from("Fred Johnson"),
+            country: Country::UnitedKingdom
+        });
+    }).unwrap();
 
-    for al in get_albums("The Queenstons").unwrap() {
-        println!("{}", al);
-    }
+    println!("Syncing Database");
+    db.sync().unwrap();
 
-    DB.flush().unwrap();
+    println!("Reloading Database");
+    db.reload().unwrap();
+
+    let mut john = None;
+    let mut fred = None;
+
+    println!("Reading from Database");
+    db.read(|db| {
+        // We want to take things out of the Database, so we clone
+        john = db.get("john").cloned();
+        fred = db.get("fred").cloned();
+    }).unwrap();
+
+    println!("Results:");
+    println!("{:#?}, {:#?}", john, fred);
+
 }
