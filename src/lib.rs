@@ -480,6 +480,16 @@ mod test {
     }
 
     #[test]
+    fn simple_insert_and_retrieve_borrow() {
+        let tmpf = NamedTempFile::new().unwrap();
+        let db = Database::open(tmpf.path()).unwrap();
+
+        db.insert("test", &25).unwrap();
+        let hello : u32 = db.retrieve("test").unwrap();
+        assert_eq!(hello, 25);
+    }
+
+    #[test]
     fn test_persistence() {
         let tmpf = NamedTempFile::new().unwrap();
         let db = Database::open(tmpf.path()).unwrap();
