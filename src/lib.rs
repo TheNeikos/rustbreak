@@ -379,7 +379,7 @@ impl<'a: 'b, 'b, T: Serialize + DeserializeOwned + Eq + Hash + 'a> TransactionLo
 
     /// Consumes the TransactionLock and runs it
     pub fn run(self) -> Result<()> {
-        let mut other_map = &mut self.lock.lock;
+        let other_map = &mut self.lock.lock;
 
         let mut map = try!(self.data.write());
 
