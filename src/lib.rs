@@ -85,6 +85,9 @@ use std::path::Path;
 use std::sync::{RwLock, RwLockWriteGuard, Mutex};
 use std::hash::Hash;
 use std::borrow::Borrow;
+use std::fmt::{Debug, Formatter};
+use std::fmt::Error as FmtError;
+use std::result::Result as RResult;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -117,13 +120,35 @@ pub type Result<T> = ::std::result::Result<T, BreakError>;
 /// }
 /// db.flush().unwrap();
 /// ```
-#[derive(Debug)]
 pub struct Database<T: Serialize + DeserializeOwned + Eq + Hash> {
     file: Mutex<File>,
     data: RwLock<HashMap<T, enc::Repr>>,
 }
 
-impl<T: Serialize + DeserializeOwned + Eq + Hash> Database<T> {
+impl<T: Serialize + DeserializeOwned + Eq + Hash + Debug> Debug for Database<T> {
+    fn fmt(&self, _: &mut Formatter) -> RResult<(), FmtError> {
+        use enc::deserialize;
+        let other_map = self.data.read();
+
+        if let Ok(m) = other_map {
+            for (n, v) in m.iter() {
+
+                #[cfg(feature = "yaml")]
+                let v = deserialize::<String, String>(v)
+                    .unwrap_or(String::from(""));
+
+                #[cfg(feature = "bin")]
+                let v = deserialize::<String>(v)
+                    .unwrap_or(String::from(""));
+
+                println!("{:?}\n\t{}", n, v);
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<T: Serialize + DeserializeOwned + Eq + Hash + Debug> Database<T> {
     /// Opens a new Database
     ///
     /// This might fail if the file is non-empty and was not created by RustBreak, or if the file
