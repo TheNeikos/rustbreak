@@ -36,7 +36,8 @@ extern crate serde_yaml;
 extern crate bincode;
 #[cfg(feature = "bin")]
 extern crate base64;
-#[macro_use] extern crate quick_error;
+#[cfg(feature = "bin")]
+#[macro_use] extern crate error_chain;
 
 mod error;
 mod backend;
@@ -143,7 +144,9 @@ impl<D> Database<D, StringMap<D>>
     }
 
     /// Constructs a `Database` with file-backed storage from a given path
-    pub fn from_path<P: AsRef<Path>>(path: P) -> BreakResult<Database<D, StringMap<D>, Ron, File>> {
+    pub fn from_path<P: AsRef<Path>>(path: P)
+        -> BreakResult<Database<D, StringMap<D>, Ron, File>,
+                        <Ron as DeSerializer<D>>::SerError, <Ron as DeSerializer<D>>::DeError> {
         let file = OpenOptions::new().read(true).write(true).create(true).open(path)?;
         Ok(Self::from_file(file))
     }
@@ -155,12 +158,11 @@ impl<D, C, S, F> Database<D, C, S, F>
         C: Serialize + DeserializeOwned + Container<D> + Debug,
         S: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
         F: Write + Seek + Resizable + Debug,
-        <S as deser::DeSerializer<C>>::SerError: std::error::Error + Send + Sync + 'static,
-        <S as deser::DeSerializer<C>>::DeError: std::fmt::Debug,
         for<'r> &'r mut F: Read
 {
     /// Write locks the database and gives you write access to the underlying `Container`
-    pub fn write<T>(&self, mut task: T) -> BreakResult<()>
+    pub fn write<T>(&self, mut task: T)
+        -> BreakResult<(), <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
         where T: FnMut(&mut C)
     {
         let mut lock = self.data.write()?;
@@ -169,7 +171,8 @@ impl<D, C, S, F> Database<D, C, S, F>
     }
 
     /// Read locks the database and gives you read access to the underlying `Container`
-    pub fn read<T>(&self, mut task: T) -> BreakResult<()>
+    pub fn read<T>(&self, mut task: T)
+        -> BreakResult<(), <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
         where T: FnMut(&C)
     {
         let lock = self.data.read()?;
@@ -178,20 +181,26 @@ impl<D, C, S, F> Database<D, C, S, F>
     }
 
     /// Directly inserts a given piece of data into the Database
-    pub fn insert(&self, key: String, data: D) -> BreakResult<()> {
+    pub fn insert(&self, key: String, data: D)
+        -> BreakResult<(), <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
+    {
         let mut lock = self.data.write()?;
         lock.insert(key, data);
         Ok(())
     }
 
     /// Directly removes a given piece of data from the Database
-    pub fn remove<K: AsRef<String>>(&self, key: K) -> BreakResult<Option<D>> {
+    pub fn remove<K: AsRef<String>>(&self, key: K)
+        -> BreakResult<Option<D>, <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
+    {
         let mut lock = self.data.write()?;
         Ok(lock.remove(key))
     }
 
     /// Directly removes a given piece of data from the Database
-    pub fn get<K: AsRef<String>>(&self, key: K) -> BreakResult<Option<D>> {
+    pub fn get<K: AsRef<String>>(&self, key: K)
+        -> BreakResult<Option<D>, <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
+    {
         let lock = self.data.read()?;
         Ok(lock.get(key).cloned())
     }
@@ -201,12 +210,14 @@ impl<D, C, S, F> Database<D, C, S, F>
     /// # Attention
     /// You __have__ to call this method yourself! Per default Rustbreak buffers everything
     /// in-memory and lets you decide when to write
-    pub fn sync(&self) -> BreakResult<()> {
+    pub fn sync(&self)
+        -> BreakResult<(), <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
+    {
         let mut backing = self.backing.lock()?;
         let data = self.data.read()?;
         let s = match self.deser.serialize(&*data) {
             Ok(s) => s,
-            Err(_) => return Err(BreakError::Serialize),
+            Err(e) => return Err(BreakError::Serialize(e)),
         };
         backing.seek(SeekFrom::Start(0))?;
         backing.resize(0)?;
@@ -218,16 +229,15 @@ impl<D, C, S, F> Database<D, C, S, F>
     /// Reloads the internal storage from the backing storage
     ///
     /// This is useful to call at startup, or your Database might be empty!
-    pub fn reload(&self) -> BreakResult<()> {
+    pub fn reload(&self)
+        -> BreakResult<(), <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
+    {
         let mut backing = self.backing.lock()?;
         let mut data = self.data.write()?;
         backing.seek(SeekFrom::Start(0))?;
         let mut new_data = match self.deser.deserialize(&mut *backing) {
             Ok(s) => s,
-            Err(e) => {
-                println!("{:?}", e);
-                return Err(BreakError::Deserialize);
-            }
+            Err(e) => return Err(BreakError::Deserialize(e)),
         };
         ::std::mem::swap(&mut *data, &mut new_data);
         Ok(())

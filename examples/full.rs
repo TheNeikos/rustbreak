@@ -15,7 +15,7 @@ struct Person {
 }
 
 fn main() {
-    let db = Database::from_path("test.yaml").unwrap().with_deser(rustbreak::deser::Yaml);
+    let db = Database::from_path("test.yaml").unwrap();
 
     println!("Writing to Database");
     db.write(|mut db| {
