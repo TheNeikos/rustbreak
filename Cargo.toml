@@ -14,14 +14,26 @@ version = "2.0.0"
 fs2 = "0.4"
 quick-error = "1.1.0"
 ron = "0.1.2"
-serde_yaml = { version = "0.7", optional = true }
 serde = "1"
+
+[dependencies.bincode]
+optional = true
+version = "0.8.1"
+
+[dependencies.base64]
+optional = true
+version = "0.7.0"
+
+[dependencies.serde_yaml]
+optional = true
+version = "0.7"
 
 [dev-dependencies]
 lazy_static = "0.2.1"
-tempfile = "2.1"
 serde_derive = "1"
+tempfile = "2.1"
 
 [features]
+bin = ["bincode", "base64"]
 yaml = ["serde_yaml"]
 ron_enc = ["ron"]

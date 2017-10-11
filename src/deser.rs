@@ -11,7 +11,10 @@ use ron::ser::pretty::to_string as to_ron_string;
 use ron::de::from_reader as from_ron_string;
 
 #[cfg(feature = "yaml")]
-use serde_yaml::{to_string as to_yaml_string, from_reader as from_yaml_string};
+pub use yaml::Yaml;
+
+#[cfg(feature = "bin")]
+pub use bincode::Bincode;
 
 /// A trait to bundle serializer and deserializer
 pub trait DeSerializer<T: Serialize + DeserializeOwned> {
@@ -42,18 +45,57 @@ impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Ron {
 }
 
 #[cfg(feature = "yaml")]
-/// The struct that allows you to use yaml
-#[derive(Debug)]
-pub struct Yaml;
+mod yaml {
+    use std::io::Read;
 
-#[cfg(feature = "yaml")]
-impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Yaml {
-    type SerError = ::serde_yaml::Error;
-    type DeError = ::serde_yaml::Error;
-    fn serialize(&self, val: &T) -> Result<String, Self::SerError> {
-        to_yaml_string(val)
+    use serde_yaml::{to_string as to_yaml_string, from_reader as from_yaml_string};
+    use serde::Serialize;
+    use serde::de::DeserializeOwned;
+
+    use deser::DeSerializer;
+
+    /// The struct that allows you to use yaml
+    #[derive(Debug)]
+    pub struct Yaml;
+
+    impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Yaml {
+        type SerError = ::serde_yaml::Error;
+        type DeError = ::serde_yaml::Error;
+        fn serialize(&self, val: &T) -> Result<String, Self::SerError> {
+            to_yaml_string(val)
+        }
+        fn deserialize<R: Read>(&self, s: R) -> Result<T, Self::DeError> {
+            from_yaml_string(s)
+        }
     }
-    fn deserialize<R: Read>(&self, s: R) -> Result<T, Self::DeError> {
-        from_yaml_string(s)
+}
+
+#[cfg(feature = "bin")]
+mod bincode {
+    use std::io::Read;
+
+    use bincode::{serialize as to_bincode_string, deserialize as from_bincode_string};
+    use base64::{encode, decode};
+    use serde::Serialize;
+    use serde::de::DeserializeOwned;
+
+    use deser::DeSerializer;
+
+    /// The struct that allows you to use bincode
+    #[derive(Debug)]
+    pub struct Bincode;
+
+    impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Bincode {
+        type SerError = ::bincode::Error;
+        type DeError = ::bincode::Error;
+        fn serialize(&self, val: &T) -> Result<String, Self::SerError> {
+            let res = to_bincode_string(val, ::bincode::Infinite)?;
+            Ok(encode(&res))
+        }
+        fn deserialize<R: Read>(&self, s: R) -> Result<T, Self::DeError> {
+            let mut string = String::new();
+            s.read_to_string(&mut string)?;
+            Ok(from_bincode_string(String::from_utf8(decode(&string)?)?.as_bytes())?)
+        }
     }
 }

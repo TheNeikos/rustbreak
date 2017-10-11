@@ -32,6 +32,10 @@ extern crate serde;
 extern crate ron;
 #[cfg(feature = "yaml")]
 extern crate serde_yaml;
+#[cfg(feature = "bin")]
+extern crate bincode;
+#[cfg(feature = "bin")]
+extern crate base64;
 #[macro_use] extern crate quick_error;
 
 mod error;
