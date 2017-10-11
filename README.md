@@ -72,6 +72,20 @@ default-features = false
 features = ["yaml"]
 ```
 
+### Ron
+
+If you would like to use [`ron`](https://github.com/ron-rs/ron) instead of bincode:
+
+- Disable default features
+- Specify ron_enc as a feature
+
+```toml
+[dependencies.rustbreak]
+version = "1"
+default-features = false
+features = ["ron_enc"]
+```
+
 How it works
 ------------
 
