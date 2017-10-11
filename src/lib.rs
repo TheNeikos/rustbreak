@@ -110,7 +110,7 @@ pub struct Database<D, C = StringMap<D>, S = Ron, F = RWVec>
 
 impl<D> Database<D, StringMap<D>>
     where
-        D: Serialize + DeserializeOwned + Debug,
+        D: Serialize + DeserializeOwned + Debug + Clone,
 {
     /// Constructs a `Database` with in-memory Storage
     pub fn memory() -> Database<D, StringMap<D>, Ron, RWVec>
@@ -126,7 +126,7 @@ impl<D> Database<D, StringMap<D>>
 
 impl<D> Database<D, StringMap<D>>
     where
-        D: Serialize + DeserializeOwned + Debug,
+        D: Serialize + DeserializeOwned + Debug + Clone,
 {
     /// Constructs a `Database` with file-backed storage
     pub fn from_file(file: File) -> Database<D, StringMap<D>, Ron, File> {
@@ -147,7 +147,7 @@ impl<D> Database<D, StringMap<D>>
 
 impl<D, C, S, F> Database<D, C, S, F>
     where
-        D: Serialize + DeserializeOwned + Debug,
+        D: Serialize + DeserializeOwned + Debug + Clone,
         C: Serialize + DeserializeOwned + Container<D> + Debug,
         S: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
         F: Write + Seek + Resizable + Debug,
@@ -171,6 +171,25 @@ impl<D, C, S, F> Database<D, C, S, F>
         let lock = self.data.read()?;
         task(&lock);
         Ok(())
+    }
+
+    /// Directly inserts a given piece of data into the Database
+    pub fn insert(&self, key: String, data: D) -> BreakResult<()> {
+        let mut lock = self.data.write()?;
+        lock.insert(key, data);
+        Ok(())
+    }
+
+    /// Directly removes a given piece of data from the Database
+    pub fn remove<K: AsRef<String>>(&self, key: K) -> BreakResult<Option<D>> {
+        let mut lock = self.data.write()?;
+        Ok(lock.remove(key))
+    }
+
+    /// Directly removes a given piece of data from the Database
+    pub fn get<K: AsRef<String>>(&self, key: K) -> BreakResult<Option<D>> {
+        let lock = self.data.read()?;
+        Ok(lock.get(key).cloned())
     }
 
     /// Syncs the Database to the backing storage
