@@ -36,6 +36,6 @@ serde_derive = "1"
 tempfile = "2.1"
 
 [features]
-bin = ["bincode", "base64"]
+bin = ["bincode", "base64", "error-chain"]
 yaml = ["serde_yaml"]
 ron_enc = ["ron"]

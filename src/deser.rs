@@ -14,7 +14,7 @@ use ron::de::from_reader as from_ron_string;
 pub use self::yaml::Yaml;
 
 #[cfg(feature = "bin")]
-pub use self::bincode::Bincode;
+pub use self::bincode::{Bincode, Error as BincodeError};
 
 /// A trait to bundle serializer and deserializer
 pub trait DeSerializer<T: Serialize + DeserializeOwned> {
