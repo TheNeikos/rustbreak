@@ -73,6 +73,16 @@ pub trait Container<V : Debug, K: Hash + Eq + Debug = String> : Debug {
 
     /// Borrows the given value from the Container
     fn get<T: AsRef<K>>(&self, key: T) -> Option<&V>;
+
+    /// Gets the underlying storage container mutably
+    fn borrow_mut(&mut self) -> &mut Self {
+        self
+    }
+
+    /// Gets the underlying storage container
+    fn borrow(&self) -> &Self {
+        self
+    }
 }
 
 impl<V: Debug, K: Hash + Eq + Debug> Container<V, K> for HashMap<K, V> {
@@ -97,7 +107,7 @@ type StringMap<D> = HashMap<String, D>;
 /// - D: Is the Data, you must specify this (usually inferred by the compiler)
 /// - C: Is the backing Container, per default HashMap<String, D>
 /// - S: The Serializer/Deserializer or short DeSer. Per default `deser::Ron` is used
-/// - F: The file backend. Per default it is in memory, but can be easily used with a file
+/// - F: The storage backend. Per default it is in memory, but can be easily used with a file
 #[derive(Debug)]
 pub struct Database<D, C = StringMap<D>, S = Ron, F = RWVec>
     where

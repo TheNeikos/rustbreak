@@ -15,6 +15,9 @@ struct Person {
 }
 
 fn main() {
+    use std::collections::HashMap;
+
+    use rustbreak::Container;
     let db = Database::from_path("test.yaml").unwrap();
 
     println!("Writing to Database");
@@ -27,6 +30,8 @@ fn main() {
             name: String::from("Fred Johnson"),
             country: Country::UnitedKingdom
         });
+        let map : &HashMap<_, _> = db.borrow();
+        println!("Values: \n{:#?}", map.values());
     }).unwrap();
 
     println!("Syncing Database");
