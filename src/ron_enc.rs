@@ -9,7 +9,7 @@ pub type DeserializeError = de::Error;
 pub fn serialize<T>(value: &T) -> ser::Result<String>
     where T: Serialize
 {
-    ser::to_string(value)
+    ser::pretty::to_string(value)
 }
 
 pub fn deserialize<T, I>(bytes: &I) -> Result<T, ::error::BreakError>
