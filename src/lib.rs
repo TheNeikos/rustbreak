@@ -23,10 +23,52 @@
 //!
 //! Rustbreak is a [Daybreak][daybreak] inspiried single file Database.
 //!
-//! See the [examples][examples] to get an idea how this library is used.
+//! You will find an overview here in the docs, but to give you a more complete tale of how this is
+//! used please check the [examples][examples].
+//!
+//! At its core, Rustbreak is an attempt at making a configurable key-value store Database.
+//! It features the possibility of:
+//! - Choosing what kind of Data is stored in it
+//! - What kind of Container is storing it
+//! - Which kind of Serialization is used for persistence
+//! - Which kind of persistence is used
+//!
+//! Per default these options are used:
+//! - The Container is a HashMap<String>, leaving you the choice what you want to store in it, and
+//! can access it with a String key.
+//! - The Serialization is [Ron][ron], a familiar notation for Rust
+//! - The persistence is in-memory, allowing for quick prototyping
+//!
+//! Later in the development process, the Serialization and the Persistence can be exchanged without
+//! breaking the code, allowing you to be flexible.
+//!
+//! If you have any questions feel free to ask at the main [repo][repo].
+//!
+//! ## Quickstart
+//!
+//! ```rust
+//! use rustbreak::Database;
+//!
+//! let db = Database::memory();
+//!
+//! println!("Writing to Database");
+//! db.write(|mut db| {
+//!     db.insert("hello".into(), String::from("world"));
+//!     db.insert("foo".into(), String::from("bar"));
+//! });
+//!
+//! db.read(|db| {
+//!     // db.insert("foo".into(), String::from("bar"));
+//!     // The above line will not compile since we are only reading
+//!     println!("Hello: {:?}", db.get("hello"));
+//! });
+//! ```
 //!
 //! [daybreak]:https://propublica.github.io/daybreak
-//! [examples]: https://github.com/TheNeikos/rustbreak
+//! [examples]: https://github.com/TheNeikos/rustbreak/tree/master/examples
+//! [examples]: https://github.com/TheNeikos/rustbreak/
+//! [ron]: https://github.com/ron-rs/ron
+
 
 extern crate serde;
 extern crate ron;
