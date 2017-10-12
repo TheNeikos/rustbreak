@@ -299,3 +299,26 @@ impl<D, C, S, F> Database<D, C, S, F>
         }
     }
 }
+
+impl<D, C, S, F> Database<D, C, S, F>
+    where
+        D: Serialize + DeserializeOwned + Debug,
+        C: Serialize + DeserializeOwned + Container<D> + Debug,
+        S: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
+        F: Write + Resizable + Debug,
+        for<'r> &'r mut F: Read
+{
+    /// Exchanges a given deserialization method with another
+    pub fn with_storage<T>(self, data: T) -> Database<D, T, S, F>
+        where
+            T: Serialize + DeserializeOwned + Container<D> + Debug,
+            S: DeSerializer<T> + DeSerializer<C> + Sync + Send + Debug,
+    {
+        Database {
+            backing: self.backing,
+            data: RwLock::new(data),
+            deser: self.deser,
+            key: PhantomData,
+        }
+    }
+}
