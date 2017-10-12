@@ -13,6 +13,7 @@ version = "1.3.0"
 [dependencies]
 bincode = { version = "0.8", optional = true }
 serde_yaml = { version = "0.7", optional = true }
+ron = { version = "0.1.3", optional = true }
 fs2 = "0.4"
 quick-error = "1.1.0"
 serde = "1"
@@ -25,3 +26,4 @@ lazy_static = "0.2.1"
 default = ["bin"]
 bin = ["bincode"]
 yaml = ["serde_yaml"]
+ron_enc = ["ron"]

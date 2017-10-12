@@ -68,15 +68,18 @@ extern crate serde;
 extern crate fs2;
 #[cfg(feature = "bin")] extern crate bincode;
 #[cfg(feature = "yaml")] extern crate serde_yaml;
+#[cfg(feature = "ron_enc")] extern crate ron;
 #[cfg(test)] extern crate tempfile;
 
 mod error;
 #[cfg(feature = "bin")] mod bincode_enc;
 #[cfg(feature = "yaml")] mod yaml_enc;
+#[cfg(feature = "ron_enc")] mod ron_enc;
 
 mod enc {
     #[cfg(feature = "bin")] pub use bincode_enc::*;
     #[cfg(feature = "yaml")] pub use yaml_enc::*;
+    #[cfg(feature = "ron_enc")] pub use ron_enc::*;
 }
 
 use std::collections::HashMap;
