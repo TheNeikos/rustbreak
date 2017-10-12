@@ -285,7 +285,7 @@ impl<D, C, S, F> Database<D, C, S, F>
         F: Write + Resizable + Debug,
         for<'r> &'r mut F: Read
 {
-    /// Exchanges a given deserialization method with another
+    /// Exchanges a given backing method with another
     pub fn with_backing<T>(self, backing: T) -> Database<D, C, S, T>
         where
             T: Write + Resizable + Debug,
@@ -308,8 +308,8 @@ impl<D, C, S, F> Database<D, C, S, F>
         F: Write + Resizable + Debug,
         for<'r> &'r mut F: Read
 {
-    /// Exchanges a given deserialization method with another
-    pub fn with_storage<T>(self, data: T) -> Database<D, T, S, F>
+    /// Exchanges a given container method with another
+    pub fn with_container<T>(self, data: T) -> Database<D, T, S, F>
         where
             T: Serialize + DeserializeOwned + Container<D> + Debug,
             S: DeSerializer<T> + DeSerializer<C> + Sync + Send + Debug,
