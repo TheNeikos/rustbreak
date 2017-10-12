@@ -277,3 +277,25 @@ impl<D, C, S, F> Database<D, C, S, F>
     }
 }
 
+impl<D, C, S, F> Database<D, C, S, F>
+    where
+        D: Serialize + DeserializeOwned + Debug,
+        C: Serialize + DeserializeOwned + Container<D> + Debug,
+        S: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
+        F: Write + Resizable + Debug,
+        for<'r> &'r mut F: Read
+{
+    /// Exchanges a given deserialization method with another
+    pub fn with_backing<T>(self, backing: T) -> Database<D, C, S, T>
+        where
+            T: Write + Resizable + Debug,
+            for<'r> &'r mut T: Read
+    {
+        Database {
+            backing: Mutex::new(backing),
+            data: self.data,
+            deser: self.deser,
+            key: PhantomData,
+        }
+    }
+}
