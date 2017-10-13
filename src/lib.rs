@@ -104,11 +104,11 @@ use error::{BreakResult, BreakError};
 use deser::{DeSerializer, Ron};
 
 /// A container is a Key/Value storage
-pub trait Container<V : Debug, K: Hash + Eq + Debug = String> : Debug {
+pub trait Container<K: Hash + Eq + Debug, V> : Debug {
     /// Insert the value at the given key
     ///
     /// Returns optionally an existing value that was replaced
-    fn insert(&mut self, key: K, value: V) -> Option<V>;
+    fn insert<T: Into<K>>(&mut self, key: T, value: V) -> Option<V>;
 
     /// Removes the given value from the Container
     fn remove<T: AsRef<K>>(&mut self, key: T) -> Option<V>;
@@ -127,9 +127,9 @@ pub trait Container<V : Debug, K: Hash + Eq + Debug = String> : Debug {
     }
 }
 
-impl<V: Debug, K: Hash + Eq + Debug> Container<V, K> for HashMap<K, V> {
-    fn insert(&mut self, key: K, value: V) -> Option<V> {
-        self.insert(key, value)
+impl<V: Debug, K: Hash + Eq + Debug> Container<K, V> for HashMap<K, V> {
+    fn insert<T: Into<K>>(&mut self, key: T, value: V) -> Option<V> {
+        self.insert(key.into(), value)
     }
     fn remove<T: AsRef<K>>(&mut self, key: T) -> Option<V> {
         self.remove(key.as_ref())
@@ -140,75 +140,81 @@ impl<V: Debug, K: Hash + Eq + Debug> Container<V, K> for HashMap<K, V> {
 }
 
 
-type StringMap<D> = HashMap<String, D>;
-
 /// The Central Database to RustBreak
 ///
-/// It has 4 Type Generics:
+/// It has 5 Type Generics:
 ///
-/// - D: Is the Data, you must specify this (usually inferred by the compiler)
+/// - V: Is the Data, you must specify this (usually inferred by the compiler)
+/// - K: Is the Key, you must specify this (usually inferred by the compiler)
 /// - C: Is the backing Container, per default HashMap<String, D>
 /// - S: The Serializer/Deserializer or short DeSer. Per default `deser::Ron` is used
 /// - F: The storage backend. Per default it is in memory, but can be easily used with a file
 #[derive(Debug)]
-pub struct Database<D, C = StringMap<D>, S = Ron, F = RWVec>
+pub struct Database<V, K = String, C = HashMap<K, V>, S = Ron, F = RWVec>
     where
-        D: Serialize + DeserializeOwned + Debug,
-        C: Serialize + DeserializeOwned + Container<D> + Debug,
-        S: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
+        V: Serialize + DeserializeOwned + Debug + Clone,
+        K: Serialize + DeserializeOwned + Debug + Hash + Eq + Clone,
+        C: Serialize + DeserializeOwned + Container<K, V> + Debug,
+        S: DeSerializer<C> + Sync + Send + Debug,
         F: Write + Resizable + Debug,
         for<'r> &'r mut F: Read
 {
     backing: Mutex<F>,
     data: RwLock<C>,
     deser: S,
-    key: PhantomData<D>
+    data_type: PhantomData<V>,
+    key_type: PhantomData<K>,
 }
 
-impl<D> Database<D, StringMap<D>>
+impl<V, K> Database<V, K, HashMap<K, V>>
     where
-        D: Serialize + DeserializeOwned + Debug + Clone,
+        V: Serialize + DeserializeOwned + Debug + Clone,
+        K: Serialize + DeserializeOwned + Debug + Hash + Eq + Clone,
 {
     /// Constructs a `Database` with in-memory Storage
-    pub fn memory() -> Database<D, StringMap<D>, Ron, RWVec>
+    pub fn memory() -> Database<V, K, HashMap<K, V>, Ron, RWVec>
     {
         Database {
             backing: Mutex::new(RWVec::new()),
             data: RwLock::new(HashMap::new()),
             deser: Ron,
-            key: PhantomData,
+            data_type: PhantomData,
+            key_type: PhantomData,
         }
     }
 }
 
-impl<D> Database<D, StringMap<D>>
+impl<V, K> Database<V, K, HashMap<K, V>>
     where
-        D: Serialize + DeserializeOwned + Debug + Clone,
+        V: Serialize + DeserializeOwned + Debug + Clone,
+        K: Serialize + DeserializeOwned + Debug + Hash + Eq + Clone,
 {
     /// Constructs a `Database` with file-backed storage
-    pub fn from_file(file: File) -> Database<D, StringMap<D>, Ron, File> {
+    pub fn from_file(file: File) -> Database<V, K, HashMap<K, V>, Ron, File> {
         Database {
             backing: Mutex::new(file),
             data: RwLock::new(HashMap::new()),
             deser: Ron,
-            key: PhantomData,
+            data_type: PhantomData,
+            key_type: PhantomData,
         }
     }
 
     /// Constructs a `Database` with file-backed storage from a given path
     pub fn from_path<P: AsRef<Path>>(path: P)
-        -> BreakResult<Database<D, StringMap<D>, Ron, File>,
-                        <Ron as DeSerializer<D>>::SerError, <Ron as DeSerializer<D>>::DeError> {
+        -> BreakResult<Database<V, K, HashMap<K, V>, Ron, File>,
+                        <Ron as DeSerializer<K>>::SerError, <Ron as DeSerializer<K>>::DeError> {
         let file = OpenOptions::new().read(true).write(true).create(true).open(path)?;
         Ok(Self::from_file(file))
     }
 }
 
-impl<D, C, S, F> Database<D, C, S, F>
+impl<V, K, C, S, F> Database<V, K, C, S, F>
     where
-        D: Serialize + DeserializeOwned + Debug + Clone,
-        C: Serialize + DeserializeOwned + Container<D> + Debug,
-        S: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
+        V: Serialize + DeserializeOwned + Debug + Clone,
+        K: Serialize + DeserializeOwned + Debug + Hash + Eq + Clone,
+        C: Serialize + DeserializeOwned + Container<K, V> + Debug,
+        S: DeSerializer<C> + Sync + Send + Debug,
         F: Write + Seek + Resizable + Debug,
         for<'r> &'r mut F: Read
 {
@@ -220,41 +226,6 @@ impl<D, C, S, F> Database<D, C, S, F>
         let mut lock = self.data.write()?;
         task(&mut lock);
         Ok(())
-    }
-
-    /// Read locks the database and gives you read access to the underlying `Container`
-    pub fn read<T>(&self, mut task: T)
-        -> BreakResult<(), <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
-        where T: FnMut(&C)
-    {
-        let lock = self.data.read()?;
-        task(&lock);
-        Ok(())
-    }
-
-    /// Directly inserts a given piece of data into the Database
-    pub fn insert(&self, key: String, data: D)
-        -> BreakResult<(), <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
-    {
-        let mut lock = self.data.write()?;
-        lock.insert(key, data);
-        Ok(())
-    }
-
-    /// Directly removes a given piece of data from the Database
-    pub fn remove<K: AsRef<String>>(&self, key: K)
-        -> BreakResult<Option<D>, <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
-    {
-        let mut lock = self.data.write()?;
-        Ok(lock.remove(key))
-    }
-
-    /// Directly removes a given piece of data from the Database
-    pub fn get<K: AsRef<String>>(&self, key: K)
-        -> BreakResult<Option<D>, <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
-    {
-        let lock = self.data.read()?;
-        Ok(lock.get(key).cloned())
     }
 
     /// Syncs the Database to the backing storage
@@ -297,38 +268,87 @@ impl<D, C, S, F> Database<D, C, S, F>
 
 }
 
-impl<D, C, S, F> Database<D, C, S, F>
+
+impl<V, K, C, S, F> Database<V, K, C, S, F>
     where
-        D: Serialize + DeserializeOwned + Debug,
-        C: Serialize + DeserializeOwned + Container<D> + Debug,
-        S: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
+        V: Serialize + DeserializeOwned + Debug + Clone,
+        K: Serialize + DeserializeOwned + Debug + Hash + Eq + Clone,
+        C: Serialize + DeserializeOwned + Container<K, V> + Debug,
+        S: DeSerializer<C> + Sync + Send + Debug,
+        F: Write + Resizable + Debug,
+        for<'r> &'r mut F: Read
+{
+    /// Read locks the database and gives you read access to the underlying `Container`
+    pub fn read<T>(&self, mut task: T)
+        -> BreakResult<(), <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
+        where T: FnMut(&C)
+    {
+        let lock = self.data.read()?;
+        task(&lock);
+        Ok(())
+    }
+
+    /// Directly inserts a given piece of data into the Database
+    pub fn insert<T: Into<K>>(&self, key: T, data: V)
+        -> BreakResult<(), <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
+    {
+        let mut lock = self.data.write()?;
+        lock.insert(key, data);
+        Ok(())
+    }
+
+    /// Directly removes a given piece of data from the Database
+    pub fn remove<KK: AsRef<K>>(&self, key: KK)
+        -> BreakResult<Option<V>, <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
+    {
+        let mut lock = self.data.write()?;
+        Ok(lock.remove(key))
+    }
+
+    /// Directly removes a given piece of data from the Database
+    pub fn get<KK: AsRef<K>>(&self, key: KK)
+        -> BreakResult<Option<V>, <S as DeSerializer<C>>::SerError, <S as DeSerializer<C>>::DeError>
+    {
+        let lock = self.data.read()?;
+        Ok(lock.get(key).cloned())
+    }
+}
+
+impl<V, K, C, S, F> Database<V, K, C, S, F>
+    where
+        V: Serialize + DeserializeOwned + Debug + Clone,
+        K: Serialize + DeserializeOwned + Debug + Hash + Eq + Clone,
+        C: Serialize + DeserializeOwned + Container<K, V> + Debug,
+        S: DeSerializer<C> + Sync + Send + Debug,
         F: Write + Resizable + Debug,
         for<'r> &'r mut F: Read
 {
     /// Exchanges a given deserialization method with another
-    pub fn with_deser<T>(self, deser: T) -> Database<D, C, T, F>
+    pub fn with_deser<T>(self, deser: T) -> Database<V, K, C, T, F>
         where
-            T: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
+            T: DeSerializer<C> + Sync + Send + Debug,
     {
         Database {
             backing: self.backing,
             data: self.data,
             deser: deser,
-            key: PhantomData,
+            data_type: PhantomData,
+            key_type: PhantomData,
         }
     }
 }
 
-impl<D, C, S, F> Database<D, C, S, F>
+impl<V, K, C, S, F> Database<V, K, C, S, F>
     where
-        D: Serialize + DeserializeOwned + Debug,
-        C: Serialize + DeserializeOwned + Container<D> + Debug,
-        S: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
+        V: Serialize + DeserializeOwned + Debug + Clone,
+        K: Serialize + DeserializeOwned + Debug + Hash + Eq + Clone,
+        C: Serialize + DeserializeOwned + Container<K, V> + Debug,
+        S: DeSerializer<C> + Sync + Send + Debug,
         F: Write + Resizable + Debug,
         for<'r> &'r mut F: Read
 {
     /// Exchanges a given backing method with another
-    pub fn with_backing<T>(self, backing: T) -> Database<D, C, S, T>
+    pub fn with_backing<T>(self, backing: T) -> Database<V, K, C, S, T>
         where
             T: Write + Resizable + Debug,
             for<'r> &'r mut T: Read
@@ -337,30 +357,33 @@ impl<D, C, S, F> Database<D, C, S, F>
             backing: Mutex::new(backing),
             data: self.data,
             deser: self.deser,
-            key: PhantomData,
+            data_type: PhantomData,
+            key_type: PhantomData,
         }
     }
 }
 
-impl<D, C, S, F> Database<D, C, S, F>
+impl<V, K, C, S, F> Database<V, K, C, S, F>
     where
-        D: Serialize + DeserializeOwned + Debug,
-        C: Serialize + DeserializeOwned + Container<D> + Debug,
-        S: DeSerializer<D> + DeSerializer<C> + Sync + Send + Debug,
+        V: Serialize + DeserializeOwned + Debug + Clone,
+        K: Serialize + DeserializeOwned + Debug + Hash + Eq + Clone,
+        C: Serialize + DeserializeOwned + Container<K, V> + Debug,
+        S: DeSerializer<C> + Sync + Send + Debug,
         F: Write + Resizable + Debug,
         for<'r> &'r mut F: Read
 {
     /// Exchanges a given container method with another
-    pub fn with_container<T>(self, data: T) -> Database<D, T, S, F>
+    pub fn with_container<T>(self, data: T) -> Database<V, K, T, S, F>
         where
-            T: Serialize + DeserializeOwned + Container<D> + Debug,
+            T: Serialize + DeserializeOwned + Container<K, V> + Debug,
             S: DeSerializer<T> + DeSerializer<C> + Sync + Send + Debug,
     {
         Database {
             backing: self.backing,
             data: RwLock::new(data),
             deser: self.deser,
-            key: PhantomData,
+            data_type: PhantomData,
+            key_type: PhantomData,
         }
     }
 }

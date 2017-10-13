@@ -18,7 +18,7 @@ fn main() {
     use std::collections::HashMap;
 
     use rustbreak::Container;
-    let db = Database::from_path("test.yaml").unwrap();
+    let db = Database::<Person, String>::from_path("test.yaml").unwrap();
 
     println!("Writing to Database");
     db.write(|mut db| {

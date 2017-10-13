@@ -44,10 +44,10 @@ Usage is quite simple:
 use rustbreak::Database;
 
 fn main() {
-    let db = Database::open("my_contacts").unwrap();
+    let db = Database::memory();
 
-    db.insert("Lapfox", "lapfoxtrax.com").unwrap();
-    db.insert("Rust", "github.com/rust-lang/rust").unwrap();
+    db.insert("Lapfox".into(), "lapfoxtrax.com")
+    db.insert("Rust".into(), "github.com/rust-lang/rust")
 
     // we need to be explicit about the kind of type we want as println! is
     // generic
