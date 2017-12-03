@@ -49,7 +49,7 @@
 //! ```rust
 //! use rustbreak::Database;
 //!
-//! let db = Database::memory();
+//! let db = Database::<String, String>::memory();
 //!
 //! println!("Writing to Database");
 //! db.write(|mut db| {
@@ -83,7 +83,7 @@ extern crate base64;
 
 mod error;
 mod backend;
-/// Differend serialization and deserialization methods one can use
+/// Different serialization and deserialization methods one can use
 pub mod deser;
 
 use std::collections::HashMap;

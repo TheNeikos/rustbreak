@@ -21,7 +21,7 @@ fn main() {
     let db = Database::<Person, String>::from_path("test.yaml").unwrap();
 
     println!("Writing to Database");
-    db.write(|mut db| {
+    db.write(|db| {
         db.insert("john".into(), Person {
             name: String::from("John Andersson"),
             country: Country::Italy
