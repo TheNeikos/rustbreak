@@ -11,7 +11,7 @@ before_script:
 script:
 - |
   travis-cargo build &&
-  travis-cargo test &&
+  travis-cargo --only nightly test &&
   rm /tmp/*
   travis-cargo test -- --no-default-features --features yaml &&
   travis-cargo bench &&
