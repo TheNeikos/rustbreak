@@ -32,8 +32,15 @@ version = "0.7"
 
 [dev-dependencies]
 lazy_static = "0.2.1"
+rocket = "0.3.3"
+rocket_codegen = "0.3.3"
 serde_derive = "1"
 tempfile = "2.1"
+
+[dev-dependencies.rocket_contrib]
+version = "0.3.3"
+default-features = false
+features = ["handlebars_templates"]
 
 [features]
 bin = ["bincode", "base64", "error-chain"]
