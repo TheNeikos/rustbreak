@@ -11,11 +11,11 @@ before_script:
 script:
 - |
   travis-cargo build &&
-  travis-cargo --only nightly test &&
+  travis-cargo test &&
   rm /tmp/*
-  travis-cargo test -- --no-default-features --features yaml &&
+  travis-cargo test --features yaml &&
   travis-cargo bench &&
-  travis-cargo --only stable doc
+  travis-cargo --only stable --features yaml,bin doc
 after_success:
 - travis-cargo --only stable doc-upload
 env:

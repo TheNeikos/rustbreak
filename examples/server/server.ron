@@ -1,0 +1,22 @@
+(
+    pastes: [
+        (
+            user: "Hello",
+            body: "Wooow",
+        ),
+        (
+            user: "Hello",
+            body: "asweasd",
+        ),
+        (
+            user: "Hello",
+            body: "<what is this>",
+        ),
+    ],
+    users: {
+        "Hello": (
+            username: "Hello",
+            password: "Test",
+        ),
+    },
+)

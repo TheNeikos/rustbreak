@@ -104,9 +104,9 @@ use deser::{DeSerializer, Ron};
 /// It has 5 Type Generics:
 ///
 /// - V: Is the Data, you must specify this (usually inferred by the compiler)
-/// - C: Is the backing Container, per default HashMap<String, D>
-/// - S: The Serializer/Deserializer or short DeSer. Per default `deser::Ron` is used
-/// - F: The storage backend. Per default it is in memory, but can be easily used with a file
+/// - S: The Serializer/Deserializer or short DeSer. Per default `deser::Ron` is used. Check the
+///     `deser` module for other strategies.
+/// - F: The storage backend. Per default it is in memory, but can be easily used with a `File`.
 #[derive(Debug)]
 pub struct Database<V, S = Ron, F = RWVec>
     where
@@ -223,13 +223,12 @@ impl<V, S, F> Database<V, S, F>
         for<'r> &'r mut F: Read
 {
     /// Read locks the database and gives you read access to the underlying `Container`
-    pub fn read<T>(&self, task: T)
-        -> BreakResult<(), <S as DeSerializer<V>>::SerError, <S as DeSerializer<V>>::DeError>
-        where T: FnOnce(&V)
+    pub fn read<T, R>(&self, task: T)
+        -> BreakResult<R, <S as DeSerializer<V>>::SerError, <S as DeSerializer<V>>::DeError>
+        where T: FnOnce(&V) -> R
     {
         let lock = self.data.read()?;
-        task(&lock);
-        Ok(())
+        Ok(task(&lock))
     }
 }
 

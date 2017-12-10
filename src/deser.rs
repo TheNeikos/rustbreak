@@ -7,7 +7,8 @@ use std::io::Read;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use ron::ser::pretty::to_string as to_ron_string;
+use ron::ser::to_string_pretty as to_ron_string;
+use ron::ser::PrettyConfig;
 use ron::de::from_reader as from_ron_string;
 
 #[cfg(feature = "yaml")]
@@ -37,7 +38,7 @@ impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Ron {
     type SerError = ::ron::ser::Error;
     type DeError = ::ron::de::Error;
     fn serialize(&self, val: &T) -> Result<String, Self::SerError> {
-        to_ron_string(val)
+        to_ron_string(val, PrettyConfig::default())
     }
     fn deserialize<R: Read>(&self, s: R) -> Result<T, Self::DeError> {
         from_ron_string(s)
