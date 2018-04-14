@@ -1,7 +1,8 @@
 extern crate rustbreak;
 #[macro_use] extern crate serde_derive;
 
-use rustbreak::Database;
+use rustbreak::FileDatabase;
+use rustbreak::deser::Ron;
 
 #[derive(Eq, PartialEq, Debug, Serialize, Deserialize, Clone)]
 enum Country {
@@ -17,7 +18,8 @@ struct Person {
 fn main() {
     use std::collections::HashMap;
 
-    let db = Database::<HashMap<String, Person>>::from_path(HashMap::new(), "test.yaml").unwrap();
+    let db = FileDatabase::<HashMap<String, Person>, Ron>::from_path(HashMap::new(),
+                                                                     Ron, "test.ron").unwrap();
 
     println!("Writing to Database");
     db.write(|db| {
@@ -29,7 +31,7 @@ fn main() {
             name: String::from("Fred Johnson"),
             country: Country::UnitedKingdom
         });
-        println!("Values: \n{:#?}", db.values());
+        println!("Entries: \n{:#?}", db);
     }).unwrap();
 
     println!("Syncing Database");
@@ -38,17 +40,11 @@ fn main() {
     println!("Reloading Database");
     db.reload().unwrap();
 
-    let mut john = None;
-    let mut fred = None;
-
     println!("Reading from Database");
     db.read(|db| {
-        // We want to take things out of the Database, so we clone
-        john = db.get("john").cloned();
-        fred = db.get("fred").cloned();
+        println!("Results:");
+        println!("{:#?}", db);
     }).unwrap();
 
-    println!("Results:");
-    println!("{:#?}, {:#?}", john, fred);
 
 }

@@ -139,6 +139,11 @@ fn post_paste(db: State<DB>, user: User, paste: Form<NewPaste>) -> Redirect {
     Redirect::to("/")
 }
 
+#[get("/dummy")]
+fn get_dummy() -> &'static str {
+    "Hello World"
+}
+
 fn main() {
     let db : DB = Database::from_path(ServerData {
        pastes: vec![],
@@ -148,7 +153,7 @@ fn main() {
 
 
     rocket::ignite()
-        .mount("/", routes![index, post_login, post_paste, post_register])
+        .mount("/", routes![index, post_login, post_paste, post_register, get_dummy])
         .attach(Template::fairing())
         .manage(db)
         .launch();

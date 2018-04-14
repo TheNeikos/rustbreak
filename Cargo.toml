@@ -11,6 +11,7 @@ repository = "https://github.com/TheNeikos/rustbreak"
 version = "2.0.0"
 
 [dependencies]
+failure = "0.1.1"
 lazy_static = "1.0.0"
 ron = "0.1.2"
 serde = "1"

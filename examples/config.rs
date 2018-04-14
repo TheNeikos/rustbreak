@@ -19,7 +19,7 @@ use std::default::Default;
 use rustbreak::Database;
 use rustbreak::deser::Yaml;
 
-type DB = Database<Config, Yaml, File>;
+type DB = Database<Config, File, Yaml>;
 
 lazy_static! {
     static ref CONFIG: DB = {

@@ -1,0 +1,10 @@
+{
+    "fred": (
+        name: "Fred Johnson",
+        country: UnitedKingdom,
+    ),
+    "john": (
+        name: "John Andersson",
+        country: Italy,
+    ),
+}

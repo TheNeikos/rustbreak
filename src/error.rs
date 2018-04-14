@@ -2,31 +2,34 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/// The Error type exported by BreakError, usually you only need to check against NotFound,
-/// however it might be useful sometimes to get other errors.
+use failure::{self, Context};
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Fail)]
+pub enum RustbreakErrorKind {
+    #[fail(display = "Could not serialize the value")]
+    SerializationError,
+    #[fail(display = "Could not deserialize the value")]
+    DeserializationError,
+    #[fail(display = "The database has been poisoned")]
+    PoisonError
+}
+
+
 #[derive(Debug)]
-pub enum BreakError<Se, De> {
-    /// An error returned when doing file operations, this might happen by opening, closing,
-    /// locking or flushing
-    Io(::std::io::Error),
-    /// Error when reading a formatted String
-    Format(::std::string::FromUtf8Error),
-    Serialize(Se),
-    Deserialize(De),
-    Poison
+pub struct RustbreakError {
+    inner: Context<RustbreakErrorKind>,
 }
 
-impl<T, Se, De> From<::std::sync::PoisonError<T>> for BreakError<Se, De> {
-    fn from(_: ::std::sync::PoisonError<T>) -> BreakError<Se, De> {
-        BreakError::Poison
+impl From<RustbreakErrorKind> for RustbreakError {
+    fn from(kind: RustbreakErrorKind) -> RustbreakError {
+        RustbreakError { inner: Context::new(kind) }
     }
 }
 
-impl<Se, De> From<::std::io::Error> for BreakError<Se, De> {
-    fn from(e: ::std::io::Error) -> BreakError<Se, De> {
-        BreakError::Io(e)
+impl From<Context<RustbreakErrorKind>> for RustbreakError {
+    fn from(inner: Context<RustbreakErrorKind>) -> RustbreakError {
+        RustbreakError { inner: inner }
     }
 }
 
-
-pub type BreakResult<T, Se, De> = Result<T, BreakError<Se, De>>;
+pub type Result<T> = ::std::result::Result<T, failure::Error>;

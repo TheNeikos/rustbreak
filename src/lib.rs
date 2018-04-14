@@ -71,33 +71,89 @@
 
 extern crate serde;
 extern crate ron;
+#[macro_use] extern crate failure;
+
 #[cfg(feature = "yaml")]
 extern crate serde_yaml;
+
 #[cfg(feature = "bin")]
 extern crate bincode;
 #[cfg(feature = "bin")]
 extern crate base64;
-#[cfg(feature = "bin")]
-#[macro_use] extern crate error_chain;
 
 mod error;
-mod backend;
 /// Different serialization and deserialization methods one can use
 pub mod deser;
 
-use std::fs::{OpenOptions, File};
-use std::path::Path;
-use std::io::{Seek, SeekFrom, Read, Write};
+use std::io::{Read, Write};
 use std::sync::{Mutex, RwLock};
 use std::fmt::Debug;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use backend::RWVec;
-pub use backend::Resizable;
-use error::{BreakResult, BreakError};
-use deser::{DeSerializer, Ron};
+// use error::{BreakResult, BreakError};
+use deser::DeSerializer;
+
+/// The Backend Trait
+///
+/// This trait describes a simple backend, allowing users to swap it, or
+/// to implement one themselves
+pub trait Backend {
+    /// This method gets the data from the backend
+    fn get_data(&mut self) -> error::Result<Vec<u8>>;
+
+    /// This method
+    fn put_data(&mut self, data: &[u8]) -> error::Result<()>;
+}
+
+/// A backend using a file
+pub struct FileBackend {
+    file: std::fs::File
+}
+
+impl Backend for FileBackend {
+    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+        use std::io::{Seek, SeekFrom};
+
+        let mut buffer = vec![];
+        self.file.seek(SeekFrom::Start(0))?;
+        self.file.read_to_end(&mut buffer)?;
+        Ok(buffer)
+    }
+
+    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+        use std::io::{Seek, SeekFrom};
+
+        self.file.seek(SeekFrom::Start(0))?;
+        self.file.set_len(0)?;
+        self.file.write_all(data)?;
+        Ok(())
+    }
+}
+
+impl FileBackend {
+    /// Opens a new FileBackend for a given path
+    pub fn open<P: AsRef<std::path::Path>>(path: P) -> error::Result<FileBackend> {
+        use std::fs::OpenOptions;
+
+        Ok(FileBackend {
+            file: OpenOptions::new().read(true).write(true).create(true).open(path)?,
+        })
+    }
+
+    /// Uses an already open File
+    pub fn from_file(file: std::fs::File) -> FileBackend {
+        FileBackend {
+            file: file
+        }
+    }
+
+    /// Return the inner File
+    pub fn into_inner(self) -> std::fs::File {
+        self.file
+    }
+}
 
 /// The Central Database to RustBreak
 ///
@@ -108,167 +164,92 @@ use deser::{DeSerializer, Ron};
 ///     `deser` module for other strategies.
 /// - F: The storage backend. Per default it is in memory, but can be easily used with a `File`.
 #[derive(Debug)]
-pub struct Database<V, S = Ron, F = RWVec>
+pub struct Database<Data, Back, DeSer>
     where
-        V: Serialize + DeserializeOwned + Debug + Clone,
-        S: DeSerializer<V> + Sync + Send + Debug,
-        F: Write + Resizable + Debug,
-        for<'r> &'r mut F: Read
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        Back: Backend,
+        DeSer: DeSerializer<Data> + Send + Sync
 {
-    backing: Mutex<F>,
-    data: RwLock<V>,
-    deser: S,
+    data: RwLock<Data>,
+    backend: Mutex<Back>,
+    deser: DeSer
 }
 
-impl<V> Database<V>
+impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     where
-        V: Serialize + DeserializeOwned + Debug + Clone,
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        Back: Backend,
+        DeSer: DeSerializer<Data> + Send + Sync
 {
-    /// Constructs a `Database` with in-memory Storage
-    pub fn memory(initial: V) -> Database<V, Ron, RWVec>
+    /// Write lock the database and get write access to the `Data` container
+    pub fn write<T>(&self, task: T) -> error::Result<()>
+        where T: FnOnce(&mut Data)
     {
-        Database {
-            backing: Mutex::new(RWVec::new()),
-            data: RwLock::new(initial),
-            deser: Ron,
-        }
-    }
-}
-
-impl<V> Database<V>
-    where
-        V: Serialize + DeserializeOwned + Debug + Clone,
-{
-    /// Constructs a `Database` with file-backed storage
-    pub fn from_file(initial: V, file: File) -> Database<V, Ron, File> {
-        Database {
-            backing: Mutex::new(file),
-            data: RwLock::new(initial),
-            deser: Ron,
-        }
-    }
-
-    /// Constructs a `Database` with file-backed storage from a given path
-    pub fn from_path<P: AsRef<Path>>(initial: V, path: P) -> BreakResult<Database<V, Ron, File>,
-        <Ron as DeSerializer<V>>::SerError, <Ron as DeSerializer<V>>::DeError>
-    {
-        let file = OpenOptions::new().read(true).write(true).create(true).open(path)?;
-        Ok(Self::from_file(initial, file))
-    }
-}
-
-impl<V, S, F> Database<V, S, F>
-    where
-        V: Serialize + DeserializeOwned + Debug + Clone,
-        S: DeSerializer<V> + Sync + Send + Debug,
-        F: Write + Seek + Resizable + Debug,
-        for<'r> &'r mut F: Read
-{
-    /// Write locks the database and gives you write access to the underlying `Container`
-    pub fn write<T>(&self, task: T)
-        -> BreakResult<(), <S as DeSerializer<V>>::SerError, <S as DeSerializer<V>>::DeError>
-        where T: FnOnce(&mut V)
-    {
-        let mut lock = self.data.write()?;
+        let mut lock = self.data.write().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
         task(&mut lock);
         Ok(())
     }
 
-    /// Syncs the Database to the backing storage
-    ///
-    /// # Attention
-    /// You __have__ to call this method yourself! Per default Rustbreak buffers everything
-    /// in-memory and lets you decide when to write
-    pub fn sync(&self)
-        -> BreakResult<(), <S as DeSerializer<V>>::SerError, <S as DeSerializer<V>>::DeError>
+    /// Read lock the database and get write access to the `Data` container
+    pub fn read<T>(&self, task: T) -> error::Result<()>
+        where T: FnOnce(&Data)
     {
-        let mut backing = self.backing.lock()?;
-        let data = self.data.read()?;
-        let s = match self.deser.serialize(&*data) {
-            Ok(s) => s,
-            Err(e) => return Err(BreakError::Serialize(e)),
-        };
-        backing.seek(SeekFrom::Start(0))?;
-        backing.resize(0)?;
-        backing.write_all(&s.as_bytes())?;
-        backing.sync()?;
+        let mut lock = self.data.read().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
+        task(&mut lock);
         Ok(())
     }
 
-    /// Reloads the internal storage from the backing storage
-    ///
-    /// This is useful to call at startup, or your Database might be empty!
-    pub fn reload(&self)
-        -> BreakResult<(), <S as DeSerializer<V>>::SerError, <S as DeSerializer<V>>::DeError>
-    {
-        let mut backing = self.backing.lock()?;
-        let mut data = self.data.write()?;
-        backing.seek(SeekFrom::Start(0))?;
-        let mut new_data = match self.deser.deserialize(&mut *backing) {
+    /// Reload the Data from the backend
+    pub fn reload(&self) -> error::Result<()> {
+        use failure::ResultExt;
+
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
+        let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
+
+        let mut new_data = match self.deser.deserialize(&backend.get_data()?[..]) {
             Ok(s) => s,
-            Err(e) => return Err(BreakError::Deserialize(e)),
+            Err(e) => Err(e).context(error::RustbreakErrorKind::DeserializationError)?
         };
+
         ::std::mem::swap(&mut *data, &mut new_data);
         Ok(())
     }
 
-}
+    /// Flush the data structure to the backend
+    pub fn sync(&self) -> error::Result<()> {
+        use failure::ResultExt;
 
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
+        let data = self.data.write().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
 
-impl<V, S, F> Database<V, S, F>
-    where
-        V: Serialize + DeserializeOwned + Debug + Clone,
-        S: DeSerializer<V> + Sync + Send + Debug,
-        F: Write + Resizable + Debug,
-        for<'r> &'r mut F: Read
-{
-    /// Read locks the database and gives you read access to the underlying `Container`
-    pub fn read<T, R>(&self, task: T)
-        -> BreakResult<R, <S as DeSerializer<V>>::SerError, <S as DeSerializer<V>>::DeError>
-        where T: FnOnce(&V) -> R
-    {
-        let lock = self.data.read()?;
-        Ok(task(&lock))
+        let ser = match self.deser.serialize(&*data) {
+            Ok(s) => s,
+            Err(e) => Err(e).context(error::RustbreakErrorKind::SerializationError)?
+        };
+        backend.put_data(ser.as_bytes())?;
+        Ok(())
     }
 }
 
-impl<V, S, F> Database<V, S, F>
+/// A database backed by a file
+pub type FileDatabase<D, DS> = Database<D, FileBackend, DS>;
+
+impl<Data, DeSer> Database<Data, FileBackend, DeSer>
     where
-        V: Serialize + DeserializeOwned + Debug + Clone,
-        S: DeSerializer<V> + Sync + Send + Debug,
-        F: Write + Resizable + Debug,
-        for<'r> &'r mut F: Read
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        DeSer: DeSerializer<Data> + Send + Sync
 {
-    /// Exchanges a given deserialization method with another
-    pub fn with_deser<T>(self, deser: T) -> Database<V, T, F>
-        where
-            T: DeSerializer<V> + Sync + Send + Debug,
+    /// Create new FileDatabase from Path
+    pub fn from_path<S>(data: Data, deser: DeSer, path: S)
+        -> error::Result<FileDatabase<Data, DeSer>>
+        where S: AsRef<std::path::Path>
     {
-        Database {
-            backing: self.backing,
-            data: self.data,
+        let b = FileBackend::open(path)?;
+
+        Ok(Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(b),
             deser: deser,
-        }
-    }
-}
-
-impl<V, S, F> Database<V, S, F>
-    where
-        V: Serialize + DeserializeOwned + Debug + Clone,
-        S: DeSerializer<V> + Sync + Send + Debug,
-        F: Write + Resizable + Debug,
-        for<'r> &'r mut F: Read
-{
-    /// Exchanges a given backing method with another
-    pub fn with_backing<T>(self, backing: T) -> Database<V, S, T>
-        where
-            T: Write + Resizable + Debug,
-            for<'r> &'r mut T: Read
-    {
-        Database {
-            backing: Mutex::new(backing),
-            data: self.data,
-            deser: self.deser,
-        }
+        })
     }
 }
