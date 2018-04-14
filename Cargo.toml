@@ -1,7 +1,7 @@
 [package]
 authors = ["Marcel Müller <neikos@neikos.email>"]
-description = "A single point database"
-documentation = "http://neikos.me/rustbreak/rustbreak/index.html"
+description = "A modular and configurable database"
+documentation = "https://docs.rs/rustbreak"
 homepage = "https://github.com/TheNeikos/rustbreak"
 keywords = ["database", "simple", "fast", "daybreak", "rustbreak"]
 license = "MPL-2.0"
@@ -30,7 +30,7 @@ version = "0.7"
 [dev-dependencies]
 lazy_static = "1"
 serde_derive = "1"
-tempfile = "3.0.0"
+tempfile = "3"
 
 [features]
 bin = ["bincode", "base64"]

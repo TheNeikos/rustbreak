@@ -38,6 +38,9 @@
 //!
 //! Using the `with_deser` and `with_backend` one can switch between the representations one needs.
 //!
+//! Rustbreak uses the [failure][failure] crate. As such, to handle its errors you will need to
+//! learn how to use it.
+//!
 //! If you have any questions feel free to ask at the main [repo][repo].
 //!
 //! ## Quickstart
@@ -64,6 +67,7 @@
 //! [daybreak]:https://propublica.github.io/daybreak
 //! [examples]: https://github.com/TheNeikos/rustbreak/tree/master/examples
 //! [ron]: https://github.com/ron-rs/ron
+//! [failure]: https://boats.gitlab.io/failure/intro.html
 
 
 extern crate serde;
@@ -93,7 +97,6 @@ use std::fmt::Debug;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-// use error::{BreakResult, BreakError};
 use deser::DeSerializer;
 use backend::{Backend, MemoryBackend, FileBackend};
 
