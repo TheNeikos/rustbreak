@@ -286,3 +286,39 @@ impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
         }
     }
 }
+
+impl<Data, Back, DeSer> Database<Data, Back, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        Back: Backend,
+        DeSer: DeSerializer<Data> + Send + Sync
+{
+    /// Exchanges the DeSerialization strategy with the given one
+    pub fn with_deser<T>(self, deser: T) -> Database<Data, Back, T>
+        where T: DeSerializer<Data> + Send + Sync
+    {
+        Database {
+            backend: self.backend,
+            data: self.data,
+            deser: deser,
+        }
+    }
+}
+
+impl<Data, Back, DeSer> Database<Data, Back, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        Back: Backend,
+        DeSer: DeSerializer<Data> + Send + Sync
+{
+    /// Exchanges the Backend with the given one
+    pub fn with_backend<T>(self, backend: T) -> Database<Data, T, DeSer>
+        where T: Backend
+    {
+        Database {
+            backend: Mutex::new(backend),
+            data: self.data,
+            deser: self.deser,
+        }
+    }
+}
