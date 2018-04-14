@@ -83,7 +83,7 @@ mod bincode {
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Bincode {
         fn serialize(&self, val: &T) -> error::Result<String> {
-            let res = to_bincode_string(val, ::bincode::Infinite)?;
+            let res = to_bincode_string(val)?;
             Ok(encode(&res))
         }
         fn deserialize<R: Read>(&self, mut s: R) -> error::Result<T> {

@@ -6,8 +6,8 @@ rust:
 - stable
 script:
 - |
-  cargo build &&
-  cargo test --features yaml &&
+  cargo build --features yaml,bin &&
+  cargo test --features yaml,bin &&
   cargo doc --features yaml,bin
 env:
   global:
