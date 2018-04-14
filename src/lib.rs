@@ -102,12 +102,12 @@ use backend::{Backend, MemoryBackend, FileBackend};
 
 /// The Central Database to RustBreak
 ///
-/// It has 5 Type Generics:
+/// It has 3 Type Generics:
 ///
-/// - V: Is the Data, you must specify this (usually inferred by the compiler)
-/// - S: The Serializer/Deserializer or short DeSer. Per default `deser::Ron` is used. Check the
-///     `deser` module for other strategies.
-/// - F: The storage backend. Per default it is in memory, but can be easily used with a `File`.
+/// - Data: Is the Data, you must specify this
+/// - Back: The storage backend.
+/// - DeSer: The Serializer/Deserializer or short DeSer. Check the `deser` module for other
+/// strategies.
 #[derive(Debug)]
 pub struct Database<Data, Back, DeSer>
     where
@@ -262,5 +262,30 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
             data: self.data,
             deser: self.deser,
         }
+    }
+}
+
+impl<Data, Back, DeSer> Database<Data, Back, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        Back: Backend,
+        DeSer: DeSerializer<Data> + Send + Sync
+{
+    /// Converts from one data type to another
+    ///
+    /// This method is useful to migrate from one datatype to another
+    pub fn convert_data<C, OutputData>(self, convert: C)
+        -> error::Result<Database<OutputData, Back, DeSer>>
+        where
+            OutputData: Serialize + DeserializeOwned + Debug + Clone + Send,
+            C: FnOnce(Data) -> OutputData,
+            DeSer: DeSerializer<OutputData>,
+    {
+        let (data, backend, deser) = self.into_inner()?;
+        Ok(Database {
+            data: RwLock::new(convert(data)),
+            backend: Mutex::new(backend),
+            deser: deser,
+        })
     }
 }
