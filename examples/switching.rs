@@ -1,7 +1,7 @@
 extern crate rustbreak;
 #[macro_use] extern crate serde_derive;
 
-use rustbreak::{FileDatabase, FileBackend};
+use rustbreak::{FileDatabase, backend::FileBackend};
 use rustbreak::deser::{Ron, Yaml};
 
 #[derive(Eq, PartialEq, Debug, Serialize, Deserialize, Clone)]

@@ -41,20 +41,22 @@ Usage is quite simple:
 - Don't forget to run `flush` periodically
 
 ```rust
-use rustbreak::Database;
+# use std::collections::HashMap;
+use rustbreak::{MemoryDatabase, deser::Ron};
 
-fn main() {
-    let db = Database::memory();
+let db = MemoryDatabase::<HashMap<String, String>, Ron>::memory(HashMap::new(), Ron);
 
-    db.insert("Lapfox".into(), "lapfoxtrax.com")
-    db.insert("Rust".into(), "github.com/rust-lang/rust")
+println!("Writing to Database");
+db.write(|db| {
+    db.insert("hello".into(), String::from("world"));
+    db.insert("foo".into(), String::from("bar"));
+});
 
-    // we need to be explicit about the kind of type we want as println! is
-    // generic
-    let rust : String = db.retrieve("Rust").unwrap();
-    println!("You can find Rust at: {}", rust);
-    db.flush().unwrap();
-}
+db.read(|db| {
+    // db.insert("foo".into(), String::from("bar"));
+    // The above line will not compile since we are only reading
+    println!("Hello: {:?}", db.get("hello"));
+});
 ```
 
 ### Yaml
