@@ -78,6 +78,9 @@ extern crate bincode;
 #[cfg(feature = "bin")]
 extern crate base64;
 
+#[cfg(test)]
+extern crate tempfile;
+
 mod error;
 /// Different storage backends
 pub mod backend;
@@ -217,7 +220,7 @@ impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
     pub fn memory(data: Data, deser: DeSer) -> MemoryDatabase<Data, DeSer> {
         Database {
             data: RwLock::new(data),
-            backend: Mutex::new(MemoryBackend(vec![])),
+            backend: Mutex::new(MemoryBackend::new()),
             deser: deser,
         }
     }
