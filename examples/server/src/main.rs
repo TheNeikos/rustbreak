@@ -7,18 +7,17 @@ extern crate rocket_contrib;
 #[macro_use] extern crate serde_derive;
 
 use std::collections::HashMap;
-use std::fs::File;
 
 use rocket::{State, Outcome};
 use rocket::http::{Cookies, Cookie};
 use rocket::request::{self, Request, FromRequest, Form};
 use rocket::response::Redirect;
 use rocket_contrib::Template;
-use rustbreak::Database;
+use rustbreak::FileDatabase;
 use rustbreak::deser::Ron;
 
 // We create a type alias so that we always associate the same types to it
-type DB = Database<ServerData, Ron, File>;
+type DB = FileDatabase<ServerData, Ron>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Paste {
@@ -145,10 +144,10 @@ fn get_dummy() -> &'static str {
 }
 
 fn main() {
-    let db : DB = Database::from_path(ServerData {
+    let db : DB = FileDatabase::from_path(ServerData {
        pastes: vec![],
        users: HashMap::new(),
-    }, "server.ron").unwrap();
+    }, Ron, "server.ron").unwrap();
     let _ = db.reload();
 
 
