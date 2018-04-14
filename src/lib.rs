@@ -33,13 +33,10 @@
 //! - Which kind of Serialization is used for persistence
 //! - Which kind of persistence is used
 //!
-//! Per default these options are used:
+//! There are two helper type aliases `MemoryDatabase` and `FileDatabase`, each backed by their
+//! respective backend.
 //!
-//! - The Serialization is [Ron][ron], a familiar notation for Rust
-//! - The persistence is in-memory, allowing for quick prototyping
-//!
-//! Later in the development process, the Serialization and the Persistence can be exchanged without
-//! breaking the code, allowing you to be flexible.
+//! Using the `with_deser` and `with_backend` one can switch between the representations one needs.
 //!
 //! If you have any questions feel free to ask at the main [repo][repo].
 //!
@@ -82,10 +79,11 @@ extern crate bincode;
 extern crate base64;
 
 mod error;
+/// Different storage backends
+pub mod backend;
 /// Different serialization and deserialization methods one can use
 pub mod deser;
 
-use std::io::{Read, Write};
 use std::sync::{Mutex, RwLock};
 use std::fmt::Debug;
 
@@ -94,66 +92,7 @@ use serde::de::DeserializeOwned;
 
 // use error::{BreakResult, BreakError};
 use deser::DeSerializer;
-
-/// The Backend Trait
-///
-/// This trait describes a simple backend, allowing users to swap it, or
-/// to implement one themselves
-pub trait Backend {
-    /// This method gets the data from the backend
-    fn get_data(&mut self) -> error::Result<Vec<u8>>;
-
-    /// This method
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()>;
-}
-
-/// A backend using a file
-pub struct FileBackend {
-    file: std::fs::File
-}
-
-impl Backend for FileBackend {
-    fn get_data(&mut self) -> error::Result<Vec<u8>> {
-        use std::io::{Seek, SeekFrom};
-
-        let mut buffer = vec![];
-        self.file.seek(SeekFrom::Start(0))?;
-        self.file.read_to_end(&mut buffer)?;
-        Ok(buffer)
-    }
-
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
-        use std::io::{Seek, SeekFrom};
-
-        self.file.seek(SeekFrom::Start(0))?;
-        self.file.set_len(0)?;
-        self.file.write_all(data)?;
-        Ok(())
-    }
-}
-
-impl FileBackend {
-    /// Opens a new FileBackend for a given path
-    pub fn open<P: AsRef<std::path::Path>>(path: P) -> error::Result<FileBackend> {
-        use std::fs::OpenOptions;
-
-        Ok(FileBackend {
-            file: OpenOptions::new().read(true).write(true).create(true).open(path)?,
-        })
-    }
-
-    /// Uses an already open File
-    pub fn from_file(file: std::fs::File) -> FileBackend {
-        FileBackend {
-            file: file
-        }
-    }
-
-    /// Return the inner File
-    pub fn into_inner(self) -> std::fs::File {
-        self.file
-    }
-}
+use backend::{Backend, MemoryBackend, FileBackend};
 
 /// The Central Database to RustBreak
 ///
@@ -253,23 +192,7 @@ impl<Data, DeSer> Database<Data, FileBackend, DeSer>
     }
 }
 
-/// An in memory backend
-///
-/// It is backed by a `Vec<u8>`
-pub struct MemoryBackend(Vec<u8>);
-
-impl Backend for MemoryBackend {
-    fn get_data(&mut self) -> error::Result<Vec<u8>> {
-        Ok(self.0.clone())
-    }
-
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
-        self.0 = data.to_owned();
-        Ok(())
-    }
-}
-
-/// A database backed by a file
+/// A database backed by a `Vec<u8>`
 pub type MemoryDatabase<D, DS> = Database<D, MemoryBackend, DS>;
 
 impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
