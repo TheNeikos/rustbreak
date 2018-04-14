@@ -47,9 +47,9 @@
 //!
 //! ```rust
 //! # use std::collections::HashMap;
-//! use rustbreak::Database;
+//! use rustbreak::{MemoryDatabase, deser::Ron};
 //!
-//! let db = Database::<HashMap<String, String>>::memory(HashMap::new());
+//! let db = MemoryDatabase::<HashMap<String, String>, Ron>::memory(HashMap::new(), Ron);
 //!
 //! println!("Writing to Database");
 //! db.write(|db| {
@@ -191,12 +191,11 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     }
 
     /// Read lock the database and get write access to the `Data` container
-    pub fn read<T>(&self, task: T) -> error::Result<()>
-        where T: FnOnce(&Data)
+    pub fn read<T, R>(&self, task: T) -> error::Result<R>
+        where T: FnOnce(&Data) -> R
     {
         let mut lock = self.data.read().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
-        task(&mut lock);
-        Ok(())
+        Ok(task(&mut lock))
     }
 
     /// Reload the Data from the backend
@@ -251,5 +250,39 @@ impl<Data, DeSer> Database<Data, FileBackend, DeSer>
             backend: Mutex::new(b),
             deser: deser,
         })
+    }
+}
+
+/// An in memory backend
+///
+/// It is backed by a `Vec<u8>`
+pub struct MemoryBackend(Vec<u8>);
+
+impl Backend for MemoryBackend {
+    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+        Ok(self.0.clone())
+    }
+
+    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+        self.0 = data.to_owned();
+        Ok(())
+    }
+}
+
+/// A database backed by a file
+pub type MemoryDatabase<D, DS> = Database<D, MemoryBackend, DS>;
+
+impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        DeSer: DeSerializer<Data> + Send + Sync
+{
+    /// Create new FileDatabase from Path
+    pub fn memory(data: Data, deser: DeSer) -> MemoryDatabase<Data, DeSer> {
+        Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(MemoryBackend(vec![])),
+            deser: deser,
+        }
     }
 }

@@ -13,18 +13,17 @@ extern crate rustbreak;
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate lazy_static;
 
-use std::fs::File;
 use std::path::PathBuf;
 use std::default::Default;
-use rustbreak::Database;
+use rustbreak::FileDatabase;
 use rustbreak::deser::Yaml;
 
-type DB = Database<Config, File, Yaml>;
+type DB = FileDatabase<Config, Yaml>;
 
 lazy_static! {
     static ref CONFIG: DB = {
-        let db = Database::from_path(Config::default(), "/tmp/config.yml").expect("Create database from path");
-        let db = db.with_deser(Yaml);
+        let db = FileDatabase::from_path(Config::default(), Yaml, "/tmp/config.yml")
+            .expect("Create database from path");
         db.reload().expect("Config to load");
         db
     };
