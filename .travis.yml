@@ -11,7 +11,7 @@ before_script:
 script:
 - |
   travis-cargo build &&
-  travis-cargo test &&
+  travis-cargo test --features yaml &&
   travis-cargo --only stable doc
 after_success:
 - travis-cargo --only stable doc-upload
