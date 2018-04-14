@@ -10,9 +10,9 @@ before_script:
   export PATH=$HOME/.local/bin:$PATH
 script:
 - |
-  travis-cargo build -- --features yaml &&
-  travis-cargo test -- --features yaml &&
-  travis-cargo --only stable -- --features yaml,bin doc
+  travis-cargo build --features yaml &&
+  travis-cargo test --features yaml &&
+  travis-cargo --only stable doc --features yaml,bin
 after_success:
 - travis-cargo --only stable doc-upload
 env:
