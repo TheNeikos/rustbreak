@@ -164,6 +164,22 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         backend.put_data(ser.as_bytes())?;
         Ok(())
     }
+
+    /// Create a database from its constituents
+    pub fn from_parts(data: Data, backend: Back, deser: DeSer) -> Database<Data, Back, DeSer> {
+        Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser: deser,
+        }
+    }
+
+    /// Break a database into its individual parts
+    pub fn into_inner(self) -> error::Result<(Data, Back, DeSer)> {
+        Ok((self.data.into_inner().map_err(|_| error::RustbreakErrorKind::PoisonError)?,
+            self.backend.into_inner().map_err(|_| error::RustbreakErrorKind::PoisonError)?,
+            self.deser))
+    }
 }
 
 /// A database backed by a file

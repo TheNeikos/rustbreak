@@ -26,19 +26,19 @@ Features
 
 - Simple To Use, Fast, Secure
 - Threadsafe
-- Key/Value Storage
-- bincode or yaml storage
+- ron, bincode, or yaml storage
 
 Usage
 -----
 
 Usage is quite simple:
 
-- Create/open a database using `Database::open`
-    - You can specify the kind of Key you want using this Syntax:
-      `Database::<Key>::open`
-- `Insert`/`Retrieve` data from the Database
-- Don't forget to run `flush` periodically
+- Create/open a database using one of the Database constructors:
+    - Create a `FileDatabase` with `FileDatabase::from_path`
+    - Create a `MemoryDatabase` with `MemoryDatabase::memory`
+    - Create a `Database` with `Database::from_parts`
+- `Write`/`Read` data from the Database
+- Don't forget to run `sync` periodically
 
 ```rust
 # use std::collections::HashMap;
@@ -87,14 +87,6 @@ version = "1"
 default-features = false
 features = ["ron_enc"]
 ```
-
-How it works
-------------
-
-Internally the Database holds a Hashmap behind a RwLock.
-This Hashmap is then written to/read from and safely casted to the requested
-type. This works thanks to encoding/decoding traits.
-
 
 
 [doc]:http://neikos.me/rustbreak/rustbreak/index.html
