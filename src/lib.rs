@@ -144,10 +144,8 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
         let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
 
-        let mut new_data = match self.deser.deserialize(&backend.get_data()?[..]) {
-            Ok(s) => s,
-            Err(e) => Err(e).context(error::RustbreakErrorKind::DeserializationError)?
-        };
+        let mut new_data = self.deser.deserialize(&backend.get_data()?[..])
+                            .context(error::RustbreakErrorKind::DeserializationError)?;
 
         ::std::mem::swap(&mut *data, &mut new_data);
         Ok(())
@@ -160,10 +158,9 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
         let data = self.data.write().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
 
-        let ser = match self.deser.serialize(&*data) {
-            Ok(s) => s,
-            Err(e) => Err(e).context(error::RustbreakErrorKind::SerializationError)?
-        };
+        let ser = self.deser.serialize(&*data)
+                    .context(error::RustbreakErrorKind::SerializationError)?;
+
         backend.put_data(ser.as_bytes())?;
         Ok(())
     }
