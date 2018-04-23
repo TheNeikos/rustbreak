@@ -22,7 +22,7 @@ type DB = FileDatabase<Config, Yaml>;
 
 lazy_static! {
     static ref CONFIG: DB = {
-        let db = FileDatabase::from_path(Config::default(), Yaml, "/tmp/config.yml")
+        let db = FileDatabase::from_path("/tmp/config.yml", Config::default())
             .expect("Create database from path");
         db.reload().expect("Config to load");
         db

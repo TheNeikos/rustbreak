@@ -18,8 +18,7 @@ struct Person {
 fn main() {
     use std::collections::HashMap;
 
-    let db = FileDatabase::<HashMap<String, Person>, Ron>::from_path(HashMap::new(),
-                                                                     Ron, "test.ron").unwrap();
+    let db = FileDatabase::<HashMap<String, Person>, Ron>::from_path("test.ron", HashMap::new()).unwrap();
 
     println!("Writing to Database");
     db.write(|db| {

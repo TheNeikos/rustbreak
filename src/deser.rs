@@ -20,7 +20,7 @@ pub use self::yaml::Yaml;
 pub use self::bincode::Bincode;
 
 /// A trait to bundle serializer and deserializer
-pub trait DeSerializer<T: Serialize + DeserializeOwned> : ::std::fmt::Debug + Send + Sync {
+pub trait DeSerializer<T: Serialize + DeserializeOwned> : ::std::default::Default + Send + Sync + Clone {
     /// Serializes a given value to a String
     fn serialize(&self, val: &T) -> error::Result<String>;
     /// Deserializes a String to a value
@@ -28,7 +28,7 @@ pub trait DeSerializer<T: Serialize + DeserializeOwned> : ::std::fmt::Debug + Se
 }
 
 /// The Struct that allows you to use `ron` the Rusty Object Notation
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct Ron;
 
 impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Ron {
@@ -52,7 +52,7 @@ mod yaml {
     use deser::DeSerializer;
 
     /// The struct that allows you to use yaml
-    #[derive(Debug)]
+    #[derive(Debug, Default, Clone)]
     pub struct Yaml;
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Yaml {
@@ -78,7 +78,7 @@ mod bincode {
     use deser::DeSerializer;
 
     /// The struct that allows you to use bincode
-    #[derive(Debug)]
+    #[derive(Debug, Default, Clone)]
     pub struct Bincode;
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Bincode {

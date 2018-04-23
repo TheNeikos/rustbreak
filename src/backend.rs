@@ -17,6 +17,7 @@ pub trait Backend {
 }
 
 /// A backend using a file
+#[derive(Debug)]
 pub struct FileBackend(::std::fs::File);
 
 impl Backend for FileBackend {
@@ -63,6 +64,7 @@ impl FileBackend {
 /// An in memory backend
 ///
 /// It is backed by a `Vec<u8>`
+#[derive(Debug)]
 pub struct MemoryBackend(Vec<u8>);
 
 impl MemoryBackend {
