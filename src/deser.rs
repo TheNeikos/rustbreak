@@ -1,22 +1,20 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
 use std::io::Read;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use ron::ser::to_string_pretty as to_ron_string;
-use ron::ser::PrettyConfig;
-use ron::de::from_reader as from_ron_string;
-
 use error;
 
-#[cfg(feature = "yaml")]
+#[cfg(feature = "ron_enc")]
+pub use self::ron::Ron;
+
+#[cfg(feature = "yaml_enc")]
 pub use self::yaml::Yaml;
 
-#[cfg(feature = "bin")]
+#[cfg(feature = "bin_enc")]
 pub use self::bincode::Bincode;
 
 /// A trait to bundle serializer and deserializer
@@ -27,20 +25,36 @@ pub trait DeSerializer<T: Serialize + DeserializeOwned> : ::std::default::Defaul
     fn deserialize<R: Read>(&self, s: R) -> error::Result<T>;
 }
 
-/// The Struct that allows you to use `ron` the Rusty Object Notation
-#[derive(Debug, Default, Clone)]
-pub struct Ron;
 
-impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Ron {
-    fn serialize(&self, val: &T) -> error::Result<String> {
-        Ok(to_ron_string(val, PrettyConfig::default())?)
-    }
-    fn deserialize<R: Read>(&self, s: R) -> error::Result<T> {
-        Ok(from_ron_string(s)?)
+#[cfg(feature = "ron_enc")]
+mod ron {
+    use std::io::Read;
+
+    use serde::Serialize;
+    use serde::de::DeserializeOwned;
+
+    use ron::ser::to_string_pretty as to_ron_string;
+    use ron::ser::PrettyConfig;
+    use ron::de::from_reader as from_ron_string;
+
+    use error;
+    use deser::DeSerializer;
+
+    /// The Struct that allows you to use `ron` the Rusty Object Notation
+    #[derive(Debug, Default, Clone)]
+    pub struct Ron;
+
+    impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Ron {
+        fn serialize(&self, val: &T) -> error::Result<String> {
+            Ok(to_ron_string(val, PrettyConfig::default())?)
+        }
+        fn deserialize<R: Read>(&self, s: R) -> error::Result<T> {
+            Ok(from_ron_string(s)?)
+        }
     }
 }
 
-#[cfg(feature = "yaml")]
+#[cfg(feature = "yaml_enc")]
 mod yaml {
     use std::io::Read;
 
@@ -65,7 +79,7 @@ mod yaml {
     }
 }
 
-#[cfg(feature = "bin")]
+#[cfg(feature = "bin_enc")]
 mod bincode {
     use std::io::Read;
 

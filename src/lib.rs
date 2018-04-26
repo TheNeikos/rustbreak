@@ -71,28 +71,66 @@
 //! # }
 //! ```
 //!
+//! ## Panics
+//!
+//! This Database implementation uses `RwLock` and `Mutex` under the hood. If either the closures
+//! given to `Database::write` or any of the Backend implementation methods panic the respective
+//! objects are then poisoned. This means that you *cannot panic* under any circumstances in your
+//! closures or custom backends.
+//!
+//! Currently there is no way to recover from a poisoned `Database` other than re-creating it.
+//!
+//! ## Examples
+//!
+//! There are several more or less in-depth example programs you can check out!
+//! Check them out here: https://github.com/TheNeikos/rustbreak/tree/master/examples
+//!
+//! - `config.rs` shows you how a possible configuration file could be managed with rustbreak
+//! - `full.rs` shows you how the database can be used as a hashmap store
+//! - `switching.rs` show you how you can easily swap out different parts of the Database
+//!     *Note*: To run this example you need to enable the feature `yaml` like so:
+//!         `cargo run --example switching --features yaml`
+//! - `server/` is a fully fledged example app written with the Rocket framework to make a form of
+//!     micro-blogging website. You will need rust nightly to start it.
+//!
+//! ## Features
+//!
+//! Rustbreak comes with three optional features:
+//!
+//! - `ron_enc` which enables the [Ron][ron] de/serialization
+//! - `yaml_enc` which enables the Yaml de/serialization
+//! - `bin_enc` which enables the Bincode de/serialization
+//!
+//! [Enable them in your `Cargo.toml` file to use them.][features] You can safely have them all
+//! turned on per-default. The default feature is `ron`
+//!
+//!
 //! [daybreak]:https://propublica.github.io/daybreak
 //! [examples]: https://github.com/TheNeikos/rustbreak/tree/master/examples
 //! [ron]: https://github.com/ron-rs/ron
 //! [failure]: https://boats.gitlab.io/failure/intro.html
+//! [features]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features
 
 
 extern crate serde;
-extern crate ron;
 #[macro_use] extern crate failure;
 
-#[cfg(feature = "yaml")]
+#[cfg(feature = "ron_enc")]
+extern crate ron;
+
+#[cfg(feature = "yaml_enc")]
 extern crate serde_yaml;
 
-#[cfg(feature = "bin")]
+#[cfg(feature = "bin_enc")]
 extern crate bincode;
-#[cfg(feature = "bin")]
+#[cfg(feature = "bin_enc")]
 extern crate base64;
 
 #[cfg(test)]
 extern crate tempfile;
 
-mod error;
+/// The rustbreak errors that can be returned
+pub mod error;
 /// Different storage backends
 pub mod backend;
 /// Different serialization and deserialization methods one can use
@@ -114,7 +152,7 @@ use backend::{Backend, MemoryBackend, FileBackend};
 /// - Data: Is the Data, you must specify this
 /// - Back: The storage backend.
 /// - DeSer: The Serializer/Deserializer or short DeSer. Check the `deser` module for other
-/// strategies.
+///     strategies.
 #[derive(Debug)]
 pub struct Database<Data, Back, DeSer>
     where
@@ -134,6 +172,18 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
 {
     /// Write lock the database and get write access to the `Data` container
+    ///
+    /// This gives you an exclusive lock on the memory object. Trying to open the database in
+    /// writing will block if it is currently being written to.
+    ///
+    /// # Panics
+    ///
+    /// If you panic in the closure, the database is poisoned. This means that any
+    /// subsequent writes/reads will fail with an `std::sync::PoisonError`.
+    /// You can only recover from this by re-creating the Database Object.
+    ///
+    /// If you do not have full control over the code being written, and cannot incur the cost of
+    /// having a single operation panicking then use `Database::write_safe`.
     pub fn write<T>(&self, task: T) -> error::Result<()>
         where T: FnOnce(&mut Data)
     {
@@ -142,7 +192,45 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(())
     }
 
+    /// Write lock the database and get write access to the `Data` container in a safe way
+    ///
+    /// This gives you an exclusive lock on the memory object. Trying to open the database in
+    /// writing will block if it is currently being written to.
+    ///
+    /// This differs to `Database::write` in that a clone of the internal data is made, which is
+    /// then passed to the closure. Only if the closure doesn't panic is the internal model
+    /// updated.
+    ///
+    /// Depending on the size of the database this can be very costly. This is a tradeoff to make
+    /// for panic safety.
+    ///
+    /// # Panics
+    ///
+    /// When the closure panics, it is caught and a `error::RustbreakErrorkind::WritePanic` will be
+    /// returned.
+    pub fn write_safe<T>(&self, task: T) -> error::Result<()>
+        where T: FnOnce(&mut Data) + std::panic::UnwindSafe,
+              for<'r> &'r mut Data: std::panic::UnwindSafe
+    {
+        let mut lock = self.data.write().map_err(|_| error::RustbreakErrorKind::PoisonError)?;
+        let mut data : Data = lock.clone();
+        ::std::panic::catch_unwind(|| {
+            task(&mut data);
+        }).map_err(|_| error::RustbreakErrorKind::WritePanicError)?;
+        *lock = data;
+        Ok(())
+    }
+
     /// Read lock the database and get write access to the `Data` container
+    ///
+    /// This gives you a read-only lock on the database. You can have as many readers in parallel
+    /// as you wish.
+    ///
+    /// # Panics
+    ///
+    /// If you panic in the closure, the database is poisoned. This means that any
+    /// subsequent writes/reads will fail with an `std::sync::PoisonError`.
+    /// You can only recover from this by re-creating the Database Object.
     pub fn read<T, R>(&self, task: T) -> error::Result<R>
         where T: FnOnce(&Data) -> R
     {

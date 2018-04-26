@@ -1,7 +1,7 @@
-// This just reads an example configuration. Don't forget to run with `--feature yaml`
+// This just reads an example configuration.
 // If it doesn't find one, it uses your default configuration
 //
-// You can create one by writing this file to `/tmp/config.yml`:
+// You can create one by writing this file to `/tmp/config.ron`:
 // ```
 // ---
 // user_path: /tmp/nope
@@ -16,13 +16,13 @@ extern crate rustbreak;
 use std::path::PathBuf;
 use std::default::Default;
 use rustbreak::FileDatabase;
-use rustbreak::deser::Yaml;
+use rustbreak::deser::Ron;
 
-type DB = FileDatabase<Config, Yaml>;
+type DB = FileDatabase<Config, Ron>;
 
 lazy_static! {
     static ref CONFIG: DB = {
-        let db = FileDatabase::from_path("/tmp/config.yml", Config::default())
+        let db = FileDatabase::from_path("/tmp/config.ron", Config::default())
             .expect("Create database from path");
         db.reload().expect("Config to load");
         db

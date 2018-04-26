@@ -144,10 +144,10 @@ fn get_dummy() -> &'static str {
 }
 
 fn main() {
-    let db : DB = FileDatabase::from_path(ServerData {
+    let db : DB = FileDatabase::from_path("server.ron", ServerData {
        pastes: vec![],
        users: HashMap::new(),
-    }, Ron, "server.ron").unwrap();
+    }).unwrap();
     let _ = db.reload();
 
 

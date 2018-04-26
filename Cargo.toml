@@ -12,8 +12,11 @@ version = "2.0.0"
 
 [dependencies]
 failure = "0.1.1"
-ron = "0.2.0"
 serde = "1"
+
+[dependencies.ron]
+optional = true
+version = "0.2.0"
 
 [dependencies.base64]
 optional = true
@@ -33,5 +36,7 @@ serde_derive = "1"
 tempfile = "3"
 
 [features]
-bin = ["bincode", "base64"]
-yaml = ["serde_yaml"]
+default = ["ron_enc"]
+ron_enc = ["ron"]
+bin_enc = ["bincode", "base64"]
+yaml_enc = ["serde_yaml"]
