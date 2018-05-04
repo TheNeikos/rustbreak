@@ -20,7 +20,7 @@ pub use self::bincode::Bincode;
 /// A trait to bundle serializer and deserializer
 pub trait DeSerializer<T: Serialize + DeserializeOwned> : ::std::default::Default + Send + Sync + Clone {
     /// Serializes a given value to a String
-    fn serialize(&self, val: &T) -> error::Result<String>;
+    fn serialize(&self, val: &T) -> error::Result<Vec<u8>>;
     /// Deserializes a String to a value
     fn deserialize<R: Read>(&self, s: R) -> error::Result<T>;
 }
@@ -32,6 +32,7 @@ mod ron {
 
     use serde::Serialize;
     use serde::de::DeserializeOwned;
+    use failure::ResultExt;
 
     use ron::ser::to_string_pretty as to_ron_string;
     use ron::ser::PrettyConfig;
@@ -45,11 +46,12 @@ mod ron {
     pub struct Ron;
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Ron {
-        fn serialize(&self, val: &T) -> error::Result<String> {
-            Ok(to_ron_string(val, PrettyConfig::default())?)
+        fn serialize(&self, val: &T) -> error::Result<Vec<u8>> {
+            Ok(to_ron_string(val, PrettyConfig::default()).map(String::into_bytes)
+                .context(error::RustbreakErrorKind::Serialization)?)
         }
         fn deserialize<R: Read>(&self, s: R) -> error::Result<T> {
-            Ok(from_ron_string(s)?)
+            Ok(from_ron_string(s).context(error::RustbreakErrorKind::Deserialization)?)
         }
     }
 }
@@ -61,6 +63,7 @@ mod yaml {
     use serde_yaml::{to_string as to_yaml_string, from_reader as from_yaml_string};
     use serde::Serialize;
     use serde::de::DeserializeOwned;
+    use failure::ResultExt;
 
     use error;
     use deser::DeSerializer;
@@ -70,11 +73,13 @@ mod yaml {
     pub struct Yaml;
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Yaml {
-        fn serialize(&self, val: &T) -> error::Result<String> {
-            Ok(to_yaml_string(val)?)
+        fn serialize(&self, val: &T) -> error::Result<Vec<u8>> {
+            Ok(to_yaml_string(val)
+                .map(String::into_bytes)
+                .context(error::RustbreakErrorKind::Serialization)?)
         }
         fn deserialize<R: Read>(&self, s: R) -> error::Result<T> {
-            Ok(from_yaml_string(s)?)
+            Ok(from_yaml_string(s).context(error::RustbreakErrorKind::Deserialization)?)
         }
     }
 }
@@ -83,10 +88,10 @@ mod yaml {
 mod bincode {
     use std::io::Read;
 
-    use bincode::{serialize as to_bincode_string, deserialize as from_bincode_string};
-    use base64::{encode, decode};
+    use bincode::{deserialize_from, serialize};
     use serde::Serialize;
     use serde::de::DeserializeOwned;
+    use failure::ResultExt;
 
     use error;
     use deser::DeSerializer;
@@ -96,14 +101,12 @@ mod bincode {
     pub struct Bincode;
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Bincode {
-        fn serialize(&self, val: &T) -> error::Result<String> {
-            let res = to_bincode_string(val)?;
-            Ok(encode(&res))
+        fn serialize(&self, val: &T) -> error::Result<Vec<u8>> {
+            let res = serialize(val).context(error::RustbreakErrorKind::Serialization)?;
+            Ok(res)
         }
-        fn deserialize<R: Read>(&self, mut s: R) -> error::Result<T> {
-            let mut string = String::new();
-            s.read_to_string(&mut string)?;
-            Ok(from_bincode_string(String::from_utf8(decode(&string)?)?.as_bytes())?)
+        fn deserialize<R: Read>(&self, s: R) -> error::Result<T> {
+            Ok(deserialize_from(s).context(error::RustbreakErrorKind::Deserialization)?)
         }
     }
 }

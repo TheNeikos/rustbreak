@@ -2,17 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! The persistence backends of the Database
+//!
+//! A file is a `Backend` through the `FileBackend`, so is a `Vec<u8>` with a `MemoryBackend`.
+//!
+//! Implementing your own Backend should be straightforward. Check the `Backend` documentation for
+//! details.
+
+use failure::ResultExt;
+
 use error;
 
 /// The Backend Trait
 ///
-/// This trait describes a simple backend, allowing users to swap it, or
-/// to implement one themselves
+/// It should always read and save in full the data that it is passed. This means that a write to
+/// the backend followed by a read __must__ return the same dataset.
 pub trait Backend {
-    /// This method gets the data from the backend
+    /// Read the all data from the backend
     fn get_data(&mut self) -> error::Result<Vec<u8>>;
 
-    /// This method
+    /// Write the whole slice to the backend
     fn put_data(&mut self, data: &[u8]) -> error::Result<()>;
 }
 
@@ -25,32 +34,32 @@ impl Backend for FileBackend {
         use ::std::io::{Seek, SeekFrom, Read};
 
         let mut buffer = vec![];
-        self.0.seek(SeekFrom::Start(0))?;
-        self.0.read_to_end(&mut buffer)?;
+        self.0.seek(SeekFrom::Start(0)).context(error::RustbreakErrorKind::Backend)?;
+        self.0.read_to_end(&mut buffer).context(error::RustbreakErrorKind::Backend)?;
         Ok(buffer)
     }
 
     fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
         use ::std::io::{Seek, SeekFrom, Write};
 
-        self.0.seek(SeekFrom::Start(0))?;
-        self.0.set_len(0)?;
-        self.0.write_all(data)?;
+        self.0.seek(SeekFrom::Start(0)).context(error::RustbreakErrorKind::Backend)?;
+        self.0.set_len(0).context(error::RustbreakErrorKind::Backend)?;
+        self.0.write_all(data).context(error::RustbreakErrorKind::Backend)?;
         Ok(())
     }
 }
 
 impl FileBackend {
-    /// Opens a new FileBackend for a given path
+    /// Opens a new FileBackend for a given path, will create it if the file doesn't exist.
     pub fn open<P: AsRef<::std::path::Path>>(path: P) -> error::Result<FileBackend> {
         use ::std::fs::OpenOptions;
 
         Ok(FileBackend(
-            OpenOptions::new().read(true).write(true).create(true).open(path)?,
+            OpenOptions::new().read(true).write(true).create(true).open(path).context(error::RustbreakErrorKind::Backend)?,
         ))
     }
 
-    /// Uses an already open File
+    /// Use an already open File as the backend
     pub fn from_file(file: ::std::fs::File) -> FileBackend {
         FileBackend(file)
     }

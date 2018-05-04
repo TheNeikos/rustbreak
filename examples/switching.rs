@@ -1,5 +1,6 @@
 extern crate rustbreak;
 #[macro_use] extern crate serde_derive;
+extern crate failure;
 
 use rustbreak::{FileDatabase, backend::FileBackend};
 use rustbreak::deser::{Ron, Yaml};
@@ -15,10 +16,10 @@ struct Person {
     country: Country,
 }
 
-fn main() {
+fn do_main() -> Result<(), failure::Error> {
     use std::collections::HashMap;
 
-    let db = FileDatabase::<HashMap<String, Person>, Ron>::from_path("test.ron", HashMap::new()).unwrap();
+    let db = FileDatabase::<HashMap<String, Person>, Ron>::from_path("test.ron", HashMap::new())?;
 
     println!("Writing to Database");
     db.write(|db| {
@@ -31,15 +32,22 @@ fn main() {
             country: Country::UnitedKingdom
         });
         println!("Entries: \n{:#?}", db);
-    }).unwrap();
+    })?;
 
     println!("Syncing Database");
-    db.sync().unwrap();
+    db.sync()?;
 
     // Now lets switch it
 
-    let db = db.with_deser(Yaml).with_backend(FileBackend::open("test.yml").unwrap());
-    db.sync().unwrap();
+    let db = db.with_deser(Yaml).with_backend(FileBackend::open("test.yml")?);
+    db.sync()?;
 
+    Ok(())
+}
+
+fn main() {
+    if let Err(e) = do_main() {
+        println!("An error has occurred at: \n{}", e.backtrace());
+    }
 }
 
