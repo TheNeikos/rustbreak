@@ -45,6 +45,7 @@ impl Backend for FileBackend {
         self.0.seek(SeekFrom::Start(0)).context(error::RustbreakErrorKind::Backend)?;
         self.0.set_len(0).context(error::RustbreakErrorKind::Backend)?;
         self.0.write_all(data).context(error::RustbreakErrorKind::Backend)?;
+        self.0.sync_all().context(error::RustbreakErrorKind::Backend)?;
         Ok(())
     }
 }

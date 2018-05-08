@@ -47,7 +47,8 @@ fn do_main() -> Result<(), failure::Error> {
 
 fn main() {
     if let Err(e) = do_main() {
-        println!("An error has occurred at: \n{}", e.backtrace());
+        eprintln!("An error has occurred at: \n{}", e.backtrace());
+        ::std::process::exit(1);
     }
 }
 

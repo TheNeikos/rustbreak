@@ -3,12 +3,12 @@ authors = ["Marcel Müller <neikos@neikos.email>"]
 description = "A modular and configurable database"
 documentation = "https://docs.rs/rustbreak"
 homepage = "https://github.com/TheNeikos/rustbreak"
-keywords = ["database", "simple", "fast", "daybreak", "rustbreak"]
+keywords = ["database", "simple", "fast", "rustbreak"]
 license = "MPL-2.0"
 name = "rustbreak"
 readme = "README.md"
 repository = "https://github.com/TheNeikos/rustbreak"
-version = "2.0.0"
+version = "2.0.0-rc1"
 
 [dependencies]
 failure = "0.1.1"
@@ -36,7 +36,7 @@ serde_derive = "1"
 tempfile = "3"
 
 [features]
-default = ["ron_enc"]
+default = []
 ron_enc = ["ron"]
 bin_enc = ["bincode", "base64"]
 yaml_enc = ["serde_yaml"]

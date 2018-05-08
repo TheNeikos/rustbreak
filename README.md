@@ -28,6 +28,44 @@ Features
 - Threadsafe
 - ron, bincode, or yaml storage
 
+Quickstart
+----------
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies.rustbreak]
+version = "2"
+features = ["ron_enc"] # You can also use "yaml_enc" or "bin_enc"
+                       # Check the documentation to add your own!
+```
+
+```rust
+# extern crate failure;
+# extern crate rustbreak;
+# use std::collections::HashMap;
+use rustbreak::{MemoryDatabase, deser::Ron};
+
+# fn main() {
+# let func = || -> Result<(), failure::Error> {
+let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
+
+println!("Writing to Database");
+db.write(|db| {
+    db.insert(0, String::from("world"));
+    db.insert(1, String::from("bar"));
+});
+
+db.read(|db| {
+    // db.insert("foo".into(), String::from("bar"));
+    // The above line will not compile since we are only reading
+    println!("Hello: {:?}", db.get(&0));
+})?;
+# return Ok(()); };
+# func().unwrap();
+# }
+```
+
 Usage
 -----
 
