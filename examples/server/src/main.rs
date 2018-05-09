@@ -99,7 +99,7 @@ fn post_register(db: State<DB>, req_user: Form<User>, mut cookies: Cookies) -> R
             Cookie::build("user_id", user.username.clone()).http_only(true).finish()
         );
     });
-    let _ = db.sync();
+    let _ = db.save();
 
     Redirect::to("/")
 }
@@ -133,7 +133,7 @@ fn post_paste(db: State<DB>, user: User, paste: Form<NewPaste>) -> Redirect {
         };
         db.pastes.push(paste);
     });
-    let _ = db.sync();
+    let _ = db.save();
 
     Redirect::to("/")
 }
@@ -148,7 +148,7 @@ fn main() {
        pastes: vec![],
        users: HashMap::new(),
     }).unwrap();
-    let _ = db.reload();
+    let _ = db.load();
 
 
     rocket::ignite()

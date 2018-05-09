@@ -24,7 +24,7 @@ lazy_static! {
     static ref CONFIG: DB = {
         let db = FileDatabase::from_path("/tmp/config.ron", Config::default())
             .expect("Create database from path");
-        db.reload().expect("Config to load");
+        db.load().expect("Config to load");
         db
     };
 }

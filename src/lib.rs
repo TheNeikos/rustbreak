@@ -387,7 +387,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(task(&mut lock))
     }
 
-    fn load(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
+    fn inner_load(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
         let new_data = deser.deserialize(
             &backend.get_data().context(error::RustbreakErrorKind::Backend)?[..]
         ).context(error::RustbreakErrorKind::Deserialization)?;
@@ -395,17 +395,17 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(new_data)
     }
 
-    /// Reload the Data from the backend
-    pub fn reload(&self) -> error::Result<()> {
+    /// Load the Data from the backend
+    pub fn load(&self) -> error::Result<()> {
         let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
 
-        *data = Self::load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
+        *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
         Ok(())
     }
 
     /// Flush the data structure to the backend
-    pub fn sync(&self) -> error::Result<()> {
+    pub fn save(&self) -> error::Result<()> {
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
         let data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
 
@@ -418,12 +418,12 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
 
     /// Get a clone of the data as it is in memory right now
     ///
-    /// To make sure you have the latest data, call this method with `reload` true
-    pub fn get_data(&self, reload: bool) -> error::Result<Data> {
+    /// To make sure you have the latest data, call this method with `load` true
+    pub fn get_data(&self, load: bool) -> error::Result<Data> {
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
         let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        if reload {
-            *data = Self::load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
+        if load {
+            *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
             drop(backend);
         }
         Ok(data.clone())
@@ -431,11 +431,11 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
 
     /// Puts the data as is into memory
     ///
-    /// To sync the data afterwards, call with `sync` true.
-    pub fn put_data(&self, new_data: Data, sync: bool) -> error::Result<()> {
+    /// To save the data afterwards, call with `save` true.
+    pub fn put_data(&self, new_data: Data, save: bool) -> error::Result<()> {
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
         let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        if sync {
+        if save {
             // TODO: Spin this into its own method
             let ser = self.deser.serialize(&*data)
                         .context(error::RustbreakErrorKind::Serialization)?;
@@ -493,7 +493,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///     db.level = 42;
     /// })?;
     ///
-    /// db.sync()?;
+    /// db.save()?;
     ///
     /// let other_db = db.try_clone()?;
     ///
@@ -587,7 +587,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
 impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
     /// Exchanges the Backend with the new one
     ///
-    /// The new backend does not necessarily have the latest data saved to it, so a `.sync` should
+    /// The new backend does not necessarily have the latest data saved to it, so a `.save` should
     /// be called to make sure that it is saved.
     pub fn with_backend<T>(self, backend: T) -> Database<Data, T, DeSer>
     {

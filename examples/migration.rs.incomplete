@@ -165,7 +165,7 @@ migration_rules! {
 
 fn get_version() -> data::Version {
     let db = FileDatabase::<data::Versioning, Ron>::from_path("migration.ron", data::Versioning { version: data::Version::First }).unwrap();
-    db.reload().unwrap();
+    db.load().unwrap();
     db.read(|ver| ver.version).unwrap()
 }
 

@@ -35,10 +35,10 @@ fn do_main() -> Result<(), failure::Error> {
     })?;
 
     println!("Syncing Database");
-    db.sync()?;
+    db.save()?;
 
-    println!("Reloading Database");
-    db.reload()?;
+    println!("Loading Database");
+    db.load()?;
 
     println!("Reading from Database");
     db.read(|db| {

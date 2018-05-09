@@ -35,12 +35,12 @@ fn do_main() -> Result<(), failure::Error> {
     })?;
 
     println!("Syncing Database");
-    db.sync()?;
+    db.save()?;
 
     // Now lets switch it
 
     let db = db.with_deser(Yaml).with_backend(FileBackend::open("test.yml")?);
-    db.sync()?;
+    db.save()?;
 
     Ok(())
 }

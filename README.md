@@ -76,7 +76,9 @@ Usage is quite simple:
     - Create a `MemoryDatabase` with `MemoryDatabase::memory`
     - Create a `Database` with `Database::from_parts`
 - `Write`/`Read` data from the Database
-- Don't forget to run `sync` periodically
+- Don't forget to run `save` periodically, or whenever it makes sense.
+    - You can save in parallel to using the Database. However you will lock
+      write acess while it is being written to storage.
 
 ```rust
 # use std::collections::HashMap;
