@@ -10,6 +10,9 @@ readme = "README.md"
 repository = "https://github.com/TheNeikos/rustbreak"
 version = "2.0.0-rc1"
 
+[package.metadata.docs.rs]
+all-features = true
+
 [dependencies]
 failure = "0.1.1"
 serde = "1"
@@ -40,3 +43,4 @@ default = []
 ron_enc = ["ron"]
 bin_enc = ["bincode", "base64"]
 yaml_enc = ["serde_yaml"]
+

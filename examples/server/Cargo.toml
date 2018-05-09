@@ -16,3 +16,4 @@ version = "0.3.3"
 
 [dependencies.rustbreak]
 path = "../.."
+features = ["ron_enc"]

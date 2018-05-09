@@ -26,7 +26,7 @@ Features
 
 - Simple To Use, Fast, Secure
 - Threadsafe
-- ron, bincode, or yaml storage
+- Serde compatible storage (ron, bincode, or yaml included)
 
 Quickstart
 ----------
@@ -97,34 +97,47 @@ db.read(|db| {
 });
 ```
 
+## Encodings
+
+The following parts explain how to enable the respective features. You can also
+enable several at the same time.
+
 ### Yaml
 
-If you would like to use yaml instead of bincode to perhaps read or modify the
-database in an editor you can use it like this:
-
-- Disable default features
-- Specify yaml as a feature
+If you would like to use yaml you need to specify `yaml_enc` as a feature:
 
 ```toml
 [dependencies.rustbreak]
 version = "1"
-default-features = false
-features = ["yaml"]
+features = ["yaml_enc"]
 ```
+
+You can now use `rustbreak::deser::Yaml` as deserialization struct.
 
 ### Ron
 
-If you would like to use [`ron`](https://github.com/ron-rs/ron) instead of bincode:
-
-- Disable default features
-- Specify ron_enc as a feature
+If you would like to use [`ron`](https://github.com/ron-rs/ron) you need to
+specify `ron_enc` as a feature:
 
 ```toml
 [dependencies.rustbreak]
 version = "1"
-default-features = false
 features = ["ron_enc"]
 ```
+
+You can now use `rustbreak::deser::Ron` as deserialization struct.
+
+### Bincode
+
+If you would like to use bincode you need to specify `bin_enc` as a feature:
+
+```toml
+[dependencies.rustbreak]
+version = "1"
+features = ["bin_enc"]
+```
+
+You can now use `rustbreak::deser::Bincode` as deserialization struct.
 
 
 [doc]:http://neikos.me/rustbreak/rustbreak/index.html

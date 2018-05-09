@@ -179,6 +179,11 @@ pub mod backend;
 /// Different serialization and deserialization methods one can use
 pub mod deser;
 
+/// The `DeSerializer` trait used by serialization structs
+pub use deser::DeSerializer;
+/// The general error used by the Rustbreak Module
+pub use error::RustbreakError;
+
 use std::sync::{Mutex, RwLock};
 use std::fmt::Debug;
 
@@ -186,7 +191,6 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use failure::ResultExt;
 
-use deser::DeSerializer;
 use backend::{Backend, MemoryBackend, FileBackend};
 
 /// The Central Database to RustBreak
