@@ -12,49 +12,49 @@ matrix:
     # iOS
     - env: TARGET=aarch64-apple-ios DISABLE_TESTS=1
       os: osx
-    - env: TARGET=armv7-apple-ios DISABLE_TESTS=1
-      os: osx
-    - env: TARGET=armv7s-apple-ios DISABLE_TESTS=1
-      os: osx
-    - env: TARGET=i386-apple-ios DISABLE_TESTS=1
-      os: osx
-    - env: TARGET=x86_64-apple-ios DISABLE_TESTS=1
-      os: osx
+#   - env: TARGET=armv7-apple-ios DISABLE_TESTS=1
+#     os: osx
+#   - env: TARGET=armv7s-apple-ios DISABLE_TESTS=1
+#     os: osx
+#   - env: TARGET=i386-apple-ios DISABLE_TESTS=1
+#     os: osx
+#   - env: TARGET=x86_64-apple-ios DISABLE_TESTS=1
+#     os: osx
 
-    # OSX
-    - env: TARGET=i686-apple-darwin
-      os: osx
-    - env: TARGET=x86_64-apple-darwin
-      os: osx
+#   # OSX
+#   - env: TARGET=i686-apple-darwin
+#     os: osx
+#   - env: TARGET=x86_64-apple-darwin
+#     os: osx
 
-    # New Architectures
+#   # New Architectures
     - env: TARGET=arm-unknown-linux-gnueabi DISABLE_TESTS=1
     - env: TARGET=armv7-unknown-linux-gnueabihf
-    - env: TARGET=sparc64-unknown-linux-gnu DISABLE_TESTS=1
+#   - env: TARGET=sparc64-unknown-linux-gnu DISABLE_TESTS=1
 
-    # arm
-    - env: TARGET=arm-unknown-linux-musleabi DISABLE_TESTS=1
-    - env: TARGET=armv7-unknown-linux-musleabihf DISABLE_TESTS=1
-    - env: TARGET=i586-unknown-linux-musl
-    - env: TARGET=armv5te-unknown-linux-gnueabi
+#   # arm
+#   - env: TARGET=arm-unknown-linux-musleabi DISABLE_TESTS=1
+#   - env: TARGET=armv7-unknown-linux-musleabihf DISABLE_TESTS=1
+#   - env: TARGET=i586-unknown-linux-musl
+#   - env: TARGET=armv5te-unknown-linux-gnueabi
 
-    # *BSD
-    - env: TARGET=i686-unknown-freebsd DISABLE_TESTS=1
-    - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
-    - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
+#   # *BSD
+#   - env: TARGET=i686-unknown-freebsd DISABLE_TESTS=1
+#   - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
+#   - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
 
-    # Other architectures
-    - env: TARGET=aarch64-unknown-linux-gnu
-    - env: TARGET=mips-unknown-linux-gnu
-    - env: TARGET=mips64-unknown-linux-gnuabi64
-    - env: TARGET=mips64el-unknown-linux-gnuabi64
-    - env: TARGET=mipsel-unknown-linux-gnu
-    - env: TARGET=powerpc-unknown-linux-gnu DISABLE_TESTS=1
-    - env: TARGET=powerpc64-unknown-linux-gnu
-    - env: TARGET=s390x-unknown-linux-gnu DISABLE_TESTS=1
+#   # Other architectures
+#   - env: TARGET=aarch64-unknown-linux-gnu
+#   - env: TARGET=mips-unknown-linux-gnu
+#   - env: TARGET=mips64-unknown-linux-gnuabi64
+#   - env: TARGET=mips64el-unknown-linux-gnuabi64
+#   - env: TARGET=mipsel-unknown-linux-gnu
+#   - env: TARGET=powerpc-unknown-linux-gnu DISABLE_TESTS=1
+#   - env: TARGET=powerpc64-unknown-linux-gnu
+#   - env: TARGET=s390x-unknown-linux-gnu DISABLE_TESTS=1
 
-    # Will probably fail due to LLVM 6
-    - env: TARGET=powerpc64le-unknown-linux-gnu
+#   # Will probably fail due to LLVM 6
+#   - env: TARGET=powerpc64le-unknown-linux-gnu
 
     # Testing other channels
     - env: TARGET=x86_64-unknown-linux-gnu
