@@ -73,42 +73,43 @@ before_install:
   - rustup self update
 
 install:
-  - |
-    case $TARGET in
-        aarch64-apple-ios)
-            rustup target install $TARGET
-            ;;
-        armv7-apple-ios)
-            rustup target install $TARGET
-            ;;
-        armv7s-apple-ios)
-            rustup target install $TARGET
-            ;;
-        i386-apple-ios)
-            rustup target install $TARGET
-            ;;
-        x86_64-apple-ios)
-            rustup target install $TARGET
-            ;;
-        wasm32-unknown-unknown)
-            rustup target install $TARGET
-            ;;
-        x86_64-unknown-linux-gnux32)
-            rustup target install $TARGET
-            ;;
-        i586-unknown-linux-musl)
-            rustup target install $TARGET
-            ;;
-        armv5te-unknown-linux-gnueabi)
-            rustup target install $TARGET
-            ;;
-    esac
-    source ~/.cargo/env || true
+- |
+  case $TARGET in
+      aarch64-apple-ios)
+          rustup target install $TARGET
+          ;;
+      armv7-apple-ios)
+          rustup target install $TARGET
+          ;;
+      armv7s-apple-ios)
+          rustup target install $TARGET
+          ;;
+      i386-apple-ios)
+          rustup target install $TARGET
+          ;;
+      x86_64-apple-ios)
+          rustup target install $TARGET
+          ;;
+      wasm32-unknown-unknown)
+          rustup target install $TARGET
+          ;;
+      x86_64-unknown-linux-gnux32)
+          rustup target install $TARGET
+          ;;
+      i586-unknown-linux-musl)
+          rustup target install $TARGET
+          ;;
+      armv5te-unknown-linux-gnueabi)
+          rustup target install $TARGET
+          ;;
+  esac
+  source ~/.cargo/env || true
 
 script:
-  - cargo build --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
-  - [[ $DISABLE_TESTS -eq 0 ]] && cargo test --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
-  - cargo doc --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
+- |
+  cargo build --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
+  [[ $DISABLE_TESTS -eq 0 ]] && cargo test --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
+  cargo doc --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
 
 env:
   global:
