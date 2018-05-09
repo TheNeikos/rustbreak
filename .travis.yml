@@ -69,9 +69,9 @@ matrix:
       rust: nightly
 script:
 - |
-  cargo build --features yaml_enc,bin_enc,ron_enc &&
-  cargo test --features yaml_enc,bin_enc,ron_enc &&
-  cargo doc --features yaml_enc,bin_enc,ron_enc
+  cargo build --target "$TARGET" --features yaml_enc,bin_enc,ron_enc &&
+  cargo test  --target "$TARGET" --features yaml_enc,bin_enc,ron_enc &&
+  cargo doc   --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
 env:
   global:
   - secure: RFX1Ke3uk8ZdrAGwKPP7FXqQfC6bkGMDzV5ut9s5da6ClvoafosJF4RBvXi5j8KhQP9Kyow7Z8IwtTExNHMIjlE0MguHsYdFBdkj9HdjrqBQHThx5vMOq3VY3bNq9ah83Q6idoTTpQvoZ380BSHznHz8E3rmKGbEA0Z1NigWlT8DFfgqI5nTa64/bvD8IzMTjkLax4pq1SjsG8v+UgwNxkuYE6Yl/mpQJ/xTCGYiFHLKk4EW8z2I5DcK/XqY+w42uFDP2BRvXdzuS937A0lGZtAiK3sKJCBDq/2Ulkz4+onkAo9QT0k9Eea9dSoxXDk3RJHzDb5wLANtubxAWyTKiyTlO3I81ogPmHevSv3xDXXwLBjPxwwIRI1qt/01Nod4yIT4fWfIxcW+rY/W5P4v5QbvAJ079v8be1lnwCEFP55WXfTFEypvKUmNpCTeY9nAKiLywpQuibi/TuHmVH+R9xWlJaXrJ8+fM+dkl57V7AnIKs3nnYmE/c5guUakJ46QVZZtSQRcFfD0QeZPM5WaqAjiZ52eP4y/Mi5Rjg4/noLjXoR3YWYxWZsT5b7U2hv/wEMTzERgHev3aPZttO7gr3ug/FDv0TP6PKPCLd/i+g0w4RKRGArcAXIBWHdeEhfOYuC8Q93gl3d/qutvgGdWF4sdBpaPRcwmaWD+FoEWjWQ=
