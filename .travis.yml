@@ -1,14 +1,61 @@
 sudo: false
 language: rust
-rust:
-- nightly
-- beta
-- stable
+matrix:
+  include:
+    # TIER 1
+    - env: TARGET=i686-apple-darwin
+    - env: TARGET=i686-pc-windows-gnu
+    - env: TARGET=i686-pc-windows-msvc
+    - env: TARGET=i686-unknown-linux-gnu
+    - env: TARGET=x86_64-apple-darwin
+    - env: TARGET=x86_64-pc-windows-gnu
+    - env: TARGET=x86_64-pc-windows-msvc
+    - env: TARGET=x86_64-unknown-linux-gnu
+
+    # TIER 2 (where rustc and cargo are supported)
+    - env: TARGET=aarch64-unknown-linux-gnu
+    - env: TARGET=arm-unknown-linux-gnueabi
+    - env: TARGET=arm-unknown-linux-gnueabihf
+    - env: TARGET=armv7-unknown-linux-gnueabihf
+    - env: TARGET=i686-unknown-freebsd
+    - env: TARGET=mips-unknown-linux-gnu
+    - env: TARGET=mips64-unknown-linux-gnuabi64
+    - env: TARGET=mips64el-unknown-linux-gnuabi64
+    - env: TARGET=mipsel-unknown-linux-gnu
+    - env: TARGET=powerpc-unknown-linux-gnu
+    - env: TARGET=powerpc64-unknown-linux-gnu
+    - env: TARGET=powerpc64le-unknown-linux-gnu
+    - env: TARGET=s390x-unknown-linux-gnu
+    - env: TARGET=x86_64-unknown-freebsd
+    - env: TARGET=x86_64-unknown-netbsd
+
+    # Testing other channels
+    - env: TARGET=x86_64-unknown-linux-gnu
+      rust: beta
+    - env: TARGET=x86_64-apple-darwin
+      os: osx
+      rust: beta
+    - env: TARGET=x86_64-unknown-linux-gnu
+      rust: nightly
+    - env: TARGET=x86_64-apple-darwin
+      os: osx
+      rust: nightly
+
+before_install:
+  - set -e
+  - rustup self update
+
+install:
+- |
+  rustup target install $TARGET
+  source ~/.cargo/env || true
+
 script:
 - |
-  cargo build --features yaml_enc,bin_enc,ron_enc &&
-  cargo test --features yaml_enc,bin_enc,ron_enc &&
-  cargo doc --features yaml_enc,bin_enc,ron_enc
+  cargo build --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
+  [[ $DISABLE_TESTS -eq 0 ]] && cargo test --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
+  cargo doc --target "$TARGET" --features yaml_enc,bin_enc,ron_enc
+
 env:
   global:
   - secure: RFX1Ke3uk8ZdrAGwKPP7FXqQfC6bkGMDzV5ut9s5da6ClvoafosJF4RBvXi5j8KhQP9Kyow7Z8IwtTExNHMIjlE0MguHsYdFBdkj9HdjrqBQHThx5vMOq3VY3bNq9ah83Q6idoTTpQvoZ380BSHznHz8E3rmKGbEA0Z1NigWlT8DFfgqI5nTa64/bvD8IzMTjkLax4pq1SjsG8v+UgwNxkuYE6Yl/mpQJ/xTCGYiFHLKk4EW8z2I5DcK/XqY+w42uFDP2BRvXdzuS937A0lGZtAiK3sKJCBDq/2Ulkz4+onkAo9QT0k9Eea9dSoxXDk3RJHzDb5wLANtubxAWyTKiyTlO3I81ogPmHevSv3xDXXwLBjPxwwIRI1qt/01Nod4yIT4fWfIxcW+rY/W5P4v5QbvAJ079v8be1lnwCEFP55WXfTFEypvKUmNpCTeY9nAKiLywpQuibi/TuHmVH+R9xWlJaXrJ8+fM+dkl57V7AnIKs3nnYmE/c5guUakJ46QVZZtSQRcFfD0QeZPM5WaqAjiZ52eP4y/Mi5Rjg4/noLjXoR3YWYxWZsT5b7U2hv/wEMTzERgHev3aPZttO7gr3ug/FDv0TP6PKPCLd/i+g0w4RKRGArcAXIBWHdeEhfOYuC8Q93gl3d/qutvgGdWF4sdBpaPRcwmaWD+FoEWjWQ=
