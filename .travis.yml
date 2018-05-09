@@ -4,21 +4,21 @@ matrix:
   include:
     # Linux
     - env: TARGET=i686-unknown-linux-gnu
-    - env: TARGET=i686-unknown-linux-musl NO_DYLIB=1
+    - env: TARGET=i686-unknown-linux-musl
     - env: TARGET=x86_64-unknown-linux-gnu
-    - env: TARGET=x86_64-unknown-linux-musl NO_DYLIB=1
+    - env: TARGET=x86_64-unknown-linux-musl
     - env: TARGET=i586-unknown-linux-gnu
 
     # iOS
-    - env: TARGET=aarch64-apple-ios DISABLE_TESTS=1 NO_DYLIB=1
+    - env: TARGET=aarch64-apple-ios DISABLE_TESTS=1
       os: osx
-    - env: TARGET=armv7-apple-ios DISABLE_TESTS=1 NO_DYLIB=1
+    - env: TARGET=armv7-apple-ios DISABLE_TESTS=1
       os: osx
-    - env: TARGET=armv7s-apple-ios DISABLE_TESTS=1 NO_DYLIB=1
+    - env: TARGET=armv7s-apple-ios DISABLE_TESTS=1
       os: osx
-    - env: TARGET=i386-apple-ios DISABLE_TESTS=1 NO_DYLIB=1
+    - env: TARGET=i386-apple-ios DISABLE_TESTS=1
       os: osx
-    - env: TARGET=x86_64-apple-ios DISABLE_TESTS=1 NO_DYLIB=1
+    - env: TARGET=x86_64-apple-ios DISABLE_TESTS=1
       os: osx
 
     # OSX
