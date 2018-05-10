@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Bincode","The struct that allows you to use bincode"],["Ron","The Struct that allows you to use `ron` the Rusty Object Notation"],["Yaml","The struct that allows you to use yaml"]],"trait":[["DeSerializer","A trait to bundle serializer and deserializer in a simple struct"]]});

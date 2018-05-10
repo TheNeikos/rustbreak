@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `rustbreak` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, rustbreak">
+
+    <title>rustbreak - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle">
+    
+    <link rel="stylesheet" type="text/css" href="../dark.css">
+    <link rel="stylesheet" type="text/css" href="../main.css" id="themeStyle">
+    <script src="../storage.js"></script>
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        <div class="sidebar-menu">&#9776;</div>
+        
+        <p class='location'>Crate rustbreak</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'rustbreak', ty: 'mod', relpath: '../'};</script></div>
+    </nav>
+
+    <div class="theme-picker">
+        <button id="theme-picker" aria-label="Pick another theme!">
+            <img src="../brush.svg" width="18" alt="Pick another theme!">
+        </button>
+        <div id="theme-choices"></div>
+    </div>
+    <script src="../theme.js"></script>
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>rustbreak</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/rustbreak/lib.rs.html#5-625' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><h1 id="rustbreak" class="section-header"><a href="#rustbreak">Rustbreak</a></h1>
+<p>Rustbreak was a <a href="https://propublica.github.io/daybreak">Daybreak</a> inspired single file Database.
+It has now since evolved into something else. Please check v1 for a more similar version.</p>
+<p>You will find an overview here in the docs, but to give you a more complete tale of how this is
+used please check the <a href="https://github.com/TheNeikos/rustbreak/tree/master/examples">examples</a>.</p>
+<p>At its core, Rustbreak is an attempt at making a configurable general-purpose store Database.
+It features the possibility of:</p>
+<ul>
+<li>Choosing what kind of Data is stored in it</li>
+<li>Which kind of Serialization is used for persistence</li>
+<li>Which kind of persistence is used</li>
+</ul>
+<p>This means you can take any struct you can serialize and deserialize and stick it into this
+Database. It is then encoded with Ron, Yaml, JSON, Bincode, anything really that uses Serde
+operations!</p>
+<p>There are two helper type aliases <code>MemoryDatabase</code> and <code>FileDatabase</code>, each backed by their
+respective backend.</p>
+<p>The <code>MemoryBackend</code> saves its data into a <code>Vec&lt;u8&gt;</code>, which is not that useful on its own, but
+is needed for compatibility with the rest of the Library.</p>
+<p>The <code>FileDatabase</code> is a classical file based database. You give it a path or a file, and it
+will use it as its storage. You still get to pick what encoding it uses.</p>
+<p>Using the <code>with_deser</code> and <code>with_backend</code> one can switch between the representations one needs.
+Even at runtime! However this is only useful in a few scenarios.</p>
+<p>If you have any questions feel free to ask at the main <a href="https://github.com/TheNeikos/rustbreak">repo</a>.</p>
+<h2 id="quickstart" class="section-header"><a href="#quickstart">Quickstart</a></h2>
+<p>Add this to your <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">[dependencies.rustbreak]
+version = &quot;2&quot;
+features = [&quot;ron_enc&quot;] # You can also use &quot;yaml_enc&quot; or &quot;bin_enc&quot;
+                       # Check the documentation to add your own!
+</code></pre>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">rustbreak</span>::{<span class="ident">MemoryDatabase</span>, <span class="ident">deser</span>::<span class="ident">Ron</span>};
+
+<span class="kw">let</span> <span class="ident">db</span> <span class="op">=</span> <span class="ident">MemoryDatabase</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">Ron</span><span class="op">&gt;</span>::<span class="ident">memory</span>(<span class="ident">HashMap</span>::<span class="ident">new</span>())<span class="question-mark">?</span>;
+
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Writing to Database&quot;</span>);
+<span class="ident">db</span>.<span class="ident">write</span>(<span class="op">|</span><span class="ident">db</span><span class="op">|</span> {
+    <span class="ident">db</span>.<span class="ident">insert</span>(<span class="number">0</span>, <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;world&quot;</span>));
+    <span class="ident">db</span>.<span class="ident">insert</span>(<span class="number">1</span>, <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;bar&quot;</span>));
+});
+
+<span class="ident">db</span>.<span class="ident">read</span>(<span class="op">|</span><span class="ident">db</span><span class="op">|</span> {
+    <span class="comment">// db.insert(&quot;foo&quot;.into(), String::from(&quot;bar&quot;));</span>
+    <span class="comment">// The above line will not compile since we are only reading</span>
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Hello: {:?}&quot;</span>, <span class="ident">db</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="number">0</span>));
+})<span class="question-mark">?</span>;</pre>
+<h2 id="error-handling" class="section-header"><a href="#error-handling">Error Handling</a></h2>
+<p>Handling errors in Rustbreak is straightforward. Every <code>Result</code> has as its fail case as
+<code>error::RustbreakError</code>. This means that you can now either continue bubbling up said error
+case, or handle it yourself.</p>
+<p>You can simply call its <code>.kind()</code> method, giving you all the information you need to continue.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">rustbreak</span>::{
+    <span class="ident">MemoryDatabase</span>,
+    <span class="ident">deser</span>::<span class="ident">Ron</span>,
+    <span class="ident">error</span>::{
+        <span class="ident">RustbreakError</span>,
+    }
+};
+<span class="kw">let</span> <span class="ident">db</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">MemoryDatabase</span>::<span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">Ron</span><span class="op">&gt;</span>::<span class="ident">memory</span>(<span class="number">0</span>) {
+    <span class="prelude-val">Ok</span>(<span class="ident">db</span>) <span class="op">=&gt;</span> <span class="ident">db</span>,
+    <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=&gt;</span> {
+        <span class="comment">// Do something with `e` here</span>
+        ::<span class="ident">std</span>::<span class="ident">process</span>::<span class="ident">exit</span>(<span class="number">1</span>);
+    }
+};</pre>
+<h2 id="panics" class="section-header"><a href="#panics">Panics</a></h2>
+<p>This Database implementation uses <code>RwLock</code> and <code>Mutex</code> under the hood. If either the closures
+given to <code>Database::write</code> or any of the Backend implementation methods panic the respective
+objects are then poisoned. This means that you <em>cannot panic</em> under any circumstances in your
+closures or custom backends.</p>
+<p>Currently there is no way to recover from a poisoned <code>Database</code> other than re-creating it.</p>
+<h2 id="examples" class="section-header"><a href="#examples">Examples</a></h2>
+<p>There are several more or less in-depth example programs you can check out!
+Check them out here: <a href="https://github.com/TheNeikos/rustbreak/tree/master/examples">Examples</a></p>
+<ul>
+<li><code>config.rs</code> shows you how a possible configuration file could be managed with rustbreak</li>
+<li><code>full.rs</code> shows you how the database can be used as a hashmap store</li>
+<li><code>switching.rs</code> show you how you can easily swap out different parts of the Database
+<em>Note</em>: To run this example you need to enable the feature <code>yaml</code> like so:
+<code>cargo run --example switching --features yaml</code></li>
+<li><code>server/</code> is a fully fledged example app written with the Rocket framework to make a form of
+micro-blogging website. You will need rust nightly to start it.</li>
+</ul>
+<h2 id="features" class="section-header"><a href="#features">Features</a></h2>
+<p>Rustbreak comes with three optional features:</p>
+<ul>
+<li><code>ron_enc</code> which enables the <a href="https://github.com/ron-rs/ron">Ron</a> de/serialization</li>
+<li><code>yaml_enc</code> which enables the Yaml de/serialization</li>
+<li><code>bin_enc</code> which enables the Bincode de/serialization</li>
+</ul>
+<p><a href="https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features">Enable them in your <code>Cargo.toml</code> file to use them.</a> You can safely have them all
+turned on per-default. The default feature is <code>ron</code></p>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Re-exports</a></h2>
+<table><tr><td><code>pub use deser::<a class="trait" href="../rustbreak/deser/trait.DeSerializer.html" title="trait rustbreak::deser::DeSerializer">DeSerializer</a>;</code></td></tr><tr><td><code>pub use error::<a class="struct" href="../rustbreak/error/struct.RustbreakError.html" title="struct rustbreak::error::RustbreakError">RustbreakError</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="backend/index.html"
+                                  title='mod rustbreak::backend'>backend</a></td>
+                           <td class='docblock-short'>
+                                <p>The persistence backends of the Database</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="deser/index.html"
+                                  title='mod rustbreak::deser'>deser</a></td>
+                           <td class='docblock-short'>
+                                <p>Different serialization and deserialization methods one can use</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="error/index.html"
+                                  title='mod rustbreak::error'>error</a></td>
+                           <td class='docblock-short'>
+                                <p>The rustbreak errors that can be returned</p>
+
+                           </td>
+                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Database.html"
+                                  title='struct rustbreak::Database'>Database</a></td>
+                           <td class='docblock-short'>
+                                <p>The Central Database to RustBreak</p>
+
+                           </td>
+                       </tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.FileDatabase.html"
+                                  title='type rustbreak::FileDatabase'>FileDatabase</a></td>
+                           <td class='docblock-short'>
+                                <p>A database backed by a file</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.MemoryDatabase.html"
+                                  title='type rustbreak::MemoryDatabase'>MemoryDatabase</a></td>
+                           <td class='docblock-short'>
+                                <p>A database backed by a <code>Vec&lt;u8&gt;</code></p>
+
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt><kbd>?</kbd></dt>
+                    <dd>Show this help dialog</dd>
+                    <dt><kbd>S</kbd></dt>
+                    <dd>Focus the search field</dd>
+                    <dt><kbd>↑</kbd></dt>
+                    <dd>Move up in search results</dd>
+                    <dt><kbd>↓</kbd></dt>
+                    <dd>Move down in search results</dd>
+                    <dt><kbd>↹</kbd></dt>
+                    <dd>Switch tab</dd>
+                    <dt><kbd>&#9166;</kbd></dt>
+                    <dd>Go to active search result</dd>
+                    <dt><kbd>+</kbd></dt>
+                    <dd>Expand all sections</dd>
+                    <dt><kbd>-</kbd></dt>
+                    <dd>Collapse all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "rustbreak";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

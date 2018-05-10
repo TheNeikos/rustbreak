@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["RustbreakErrorKind","The different kinds of errors that can be returned"]],"struct":[["RustbreakError","The main error type that gets returned for errors that happen while interacting with a `Database`."]],"type":[["Result","A simple type alias for errors"]]});
