@@ -1,0 +1,26 @@
+(
+    pastes: [
+        (
+            user: "neikos@neikos.email",
+            body: "Hello :)",
+        ),
+        (
+            user: "neikos@neikos.email",
+            body: "This works great!",
+        ),
+        (
+            user: "neikos@neikos.email",
+            body: "Hehe",
+        ),
+        (
+            user: "neikos@neikos.email",
+            body: "Hello World :)",
+        ),
+    ],
+    users: {
+        "neikos@neikos.email": (
+            username: "neikos@neikos.email",
+            password: "asdf",
+        ),
+    },
+)

@@ -21,538 +21,605 @@
 
 //! # Rustbreak
 //!
-//! Rustbreak is a [Daybreak][daybreak] inspiried single file Database.
-//! It uses [bincode][bincode] or yaml to compactly save data.
-//! It is thread safe and very fast due to staying in memory until flushed to disk.
+//! Rustbreak was a [Daybreak][daybreak] inspired single file Database.
+//! It has now since evolved into something else. Please check v1 for a more similar version.
 //!
-//! It can be used for short-lived processes or with long-lived ones:
+//! You will find an overview here in the docs, but to give you a more complete tale of how this is
+//! used please check the [examples][examples].
 //!
-//! ```rust
-//! use rustbreak::{Database, Result};
+//! At its core, Rustbreak is an attempt at making a configurable general-purpose store Database.
+//! It features the possibility of:
 //!
-//! fn get_data(key: &str) -> Result<String> {
-//!     let db = try!(Database::<String>::open("/tmp/database"));
-//!     db.retrieve(key)
-//! }
+//! - Choosing what kind of Data is stored in it
+//! - Which kind of Serialization is used for persistence
+//! - Which kind of persistence is used
+//!
+//! This means you can take any struct you can serialize and deserialize and stick it into this
+//! Database. It is then encoded with Ron, Yaml, JSON, Bincode, anything really that uses Serde
+//! operations!
+//!
+//! There are two helper type aliases `MemoryDatabase` and `FileDatabase`, each backed by their
+//! respective backend.
+//!
+//! The `MemoryBackend` saves its data into a `Vec<u8>`, which is not that useful on its own, but
+//! is needed for compatibility with the rest of the Library.
+//!
+//! The `FileDatabase` is a classical file based database. You give it a path or a file, and it
+//! will use it as its storage. You still get to pick what encoding it uses.
+//!
+//! Using the `with_deser` and `with_backend` one can switch between the representations one needs.
+//! Even at runtime! However this is only useful in a few scenarios.
+//!
+//! If you have any questions feel free to ask at the main [repo][repo].
+//!
+//! ## Quickstart
+//!
+//! Add this to your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies.rustbreak]
+//! version = "2"
+//! features = ["ron_enc"] # You can also use "yaml_enc" or "bin_enc"
+//!                        # Check the documentation to add your own!
 //! ```
 //!
 //! ```rust
-//! # #[macro_use] extern crate lazy_static;
+//! # extern crate failure;
 //! # extern crate rustbreak;
-//! use rustbreak::{Database, Result};
+//! # use std::collections::HashMap;
+//! use rustbreak::{MemoryDatabase, deser::Ron};
 //!
-//! lazy_static! {
-//!     static ref DB: Database<String> = {
-//!         Database::open("/tmp/more_data").unwrap()
-//!     };
-//! }
+//! # fn main() {
+//! # let func = || -> Result<(), failure::Error> {
+//! let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
 //!
-//! fn get_data(key: &str) -> Result<u64> {
-//!     DB.retrieve(key)
-//! }
+//! println!("Writing to Database");
+//! db.write(|db| {
+//!     db.insert(0, String::from("world"));
+//!     db.insert(1, String::from("bar"));
+//! });
 //!
-//! fn set_data(key: &str, d: u64) -> Result<()> {
-//!     let mut lock = try!(DB.lock());
-//!     let old_data : u64 = try!(lock.retrieve(key));
-//!     lock.insert(key, d + old_data)
-//! }
-//!
-//! # fn main() {}
+//! db.read(|db| {
+//!     // db.insert("foo".into(), String::from("bar"));
+//!     // The above line will not compile since we are only reading
+//!     println!("Hello: {:?}", db.get(&0));
+//! })?;
+//! # return Ok(()); };
+//! # func().unwrap();
+//! # }
 //! ```
 //!
-//! [daybreak]:https://propublica.github.io/daybreak/
-//! [bincode]:https://github.com/TyOverby/bincode
+//! ## Error Handling
+//!
+//! Handling errors in Rustbreak is straightforward. Every `Result` has as its fail case as
+//! `error::RustbreakError`. This means that you can now either continue bubbling up said error
+//! case, or handle it yourself.
+//!
+//! You can simply call its `.kind()` method, giving you all the information you need to continue.
+//!
+//! ```rust
+//! use rustbreak::{
+//!     MemoryDatabase,
+//!     deser::Ron,
+//!     error::{
+//!         RustbreakError,
+//!     }
+//! };
+//! let db = match MemoryDatabase::<usize, Ron>::memory(0) {
+//!     Ok(db) => db,
+//!     Err(e) => {
+//!         // Do something with `e` here
+//!         ::std::process::exit(1);
+//!     }
+//! };
+//! ```
+//!
+//! ## Panics
+//!
+//! This Database implementation uses `RwLock` and `Mutex` under the hood. If either the closures
+//! given to `Database::write` or any of the Backend implementation methods panic the respective
+//! objects are then poisoned. This means that you *cannot panic* under any circumstances in your
+//! closures or custom backends.
+//!
+//! Currently there is no way to recover from a poisoned `Database` other than re-creating it.
+//!
+//! ## Examples
+//!
+//! There are several more or less in-depth example programs you can check out!
+//! Check them out here: [Examples][examples]
+//!
+//! - `config.rs` shows you how a possible configuration file could be managed with rustbreak
+//! - `full.rs` shows you how the database can be used as a hashmap store
+//! - `switching.rs` show you how you can easily swap out different parts of the Database
+//!     *Note*: To run this example you need to enable the feature `yaml` like so:
+//!         `cargo run --example switching --features yaml`
+//! - `server/` is a fully fledged example app written with the Rocket framework to make a form of
+//!     micro-blogging website. You will need rust nightly to start it.
+//!
+//! ## Features
+//!
+//! Rustbreak comes with three optional features:
+//!
+//! - `ron_enc` which enables the [Ron][ron] de/serialization
+//! - `yaml_enc` which enables the Yaml de/serialization
+//! - `bin_enc` which enables the Bincode de/serialization
+//!
+//! [Enable them in your `Cargo.toml` file to use them.][features] You can safely have them all
+//! turned on per-default. The default feature is `ron`
+//!
+//!
+//! [repo]: https://github.com/TheNeikos/rustbreak
+//! [daybreak]: https://propublica.github.io/daybreak
+//! [examples]: https://github.com/TheNeikos/rustbreak/tree/master/examples
+//! [ron]: https://github.com/ron-rs/ron
+//! [failure]: https://boats.gitlab.io/failure/intro.html
+//! [features]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features
+
 
 extern crate serde;
-#[macro_use] extern crate quick_error;
-extern crate fs2;
-#[cfg(feature = "bin")] extern crate bincode;
-#[cfg(feature = "yaml")] extern crate serde_yaml;
-#[cfg(feature = "ron_enc")] extern crate ron;
-#[cfg(test)] extern crate tempfile;
+#[macro_use] extern crate failure;
 
-mod error;
-#[cfg(feature = "bin")] mod bincode_enc;
-#[cfg(feature = "yaml")] mod yaml_enc;
-#[cfg(feature = "ron_enc")] mod ron_enc;
+#[cfg(feature = "ron_enc")]
+extern crate ron;
 
-mod enc {
-    #[cfg(feature = "bin")] pub use bincode_enc::*;
-    #[cfg(feature = "yaml")] pub use yaml_enc::*;
-    #[cfg(feature = "ron_enc")] pub use ron_enc::*;
-}
+#[cfg(feature = "yaml_enc")]
+extern crate serde_yaml;
 
-use std::collections::HashMap;
-use std::fs::File;
-use std::path::Path;
-use std::sync::{RwLock, RwLockWriteGuard, Mutex};
-use std::hash::Hash;
-use std::borrow::Borrow;
+#[cfg(feature = "bin_enc")]
+extern crate bincode;
+#[cfg(feature = "bin_enc")]
+extern crate base64;
+
+#[cfg(test)]
+extern crate tempfile;
+
+/// The rustbreak errors that can be returned
+pub mod error;
+pub mod backend;
+/// Different serialization and deserialization methods one can use
+pub mod deser;
+
+/// The `DeSerializer` trait used by serialization structs
+pub use deser::DeSerializer;
+/// The general error used by the Rustbreak Module
+pub use error::RustbreakError;
+
+use std::sync::{Mutex, RwLock};
+use std::fmt::Debug;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use failure::ResultExt;
 
-pub use error::BreakError;
+use backend::{Backend, MemoryBackend, FileBackend};
 
-/// Alias for our Result Type
-pub type Result<T> = ::std::result::Result<T, BreakError>;
-
-/// The Database structure
+/// The Central Database to RustBreak
 ///
-/// # Notes
-/// One should create this once for each Database instance.
-/// Subsequent tries to open the same file should fail or worse, could break the database.
+/// It has 3 Type Generics:
 ///
-/// # Example
+/// - Data: Is the Data, you must specify this
+/// - Back: The storage backend.
+/// - DeSer: The Serializer/Deserializer or short DeSer. Check the `deser` module for other
+///     strategies.
 ///
-/// ```
-/// use rustbreak::Database;
+/// # Panics
 ///
-/// let db = Database::open("/tmp/artists").unwrap();
-///
-/// let albums = vec![
-///     ("What you do", "The Queenstons"),
-///     ("Experience", "The Prodigy"),
-/// ];
-///
-/// for (album, artist) in albums {
-///     db.insert(&format!("album_{}",album), artist).unwrap();
-/// }
-/// db.flush().unwrap();
-/// ```
+/// If the backend or the de/serialization panics, the database is poisoned. This means that any
+/// subsequent writes/reads will fail with an `error::RustbreakErrorKind::PoisonError`.
+/// You can only recover from this by re-creating the Database Object.
 #[derive(Debug)]
-pub struct Database<T: Serialize + DeserializeOwned + Eq + Hash> {
-    file: Mutex<File>,
-    data: RwLock<HashMap<T, enc::Repr>>,
+pub struct Database<Data, Back, DeSer>
+{
+    data: RwLock<Data>,
+    backend: Mutex<Back>,
+    deser: DeSer
 }
 
-impl<T: Serialize + DeserializeOwned + Eq + Hash> Database<T> {
-    /// Opens a new Database
+impl<Data, Back, DeSer> Database<Data, Back, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        Back: Backend + Debug,
+        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+{
+    /// Write lock the database and get write access to the `Data` container
     ///
-    /// This might fail if the file is non-empty and was not created by RustBreak, or if the file
-    /// is already being used by another RustBreak instance.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustbreak::Database;
-    ///
-    /// let db = Database::open("/tmp/more_artists").unwrap();
-    ///
-    /// let albums = vec![
-    ///     ("What you do", "The Queenstons"),
-    ///     ("Experience", "The Prodigy"),
-    /// ];
-    ///
-    /// for (album, artist) in albums {
-    ///     db.insert(&format!("album_{}",album), artist).unwrap();
-    /// }
-    /// db.flush().unwrap();
-    /// ```
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Database<T>> {
-		use std::fs::OpenOptions;
-		use fs2::FileExt;
-        use std::io::Read;
-        use enc::deserialize;
-
-        let mut file = try!(OpenOptions::new().read(true).write(true).create(true).open(path));
-        try!(file.try_lock_exclusive());
-
-        let mut buf = Vec::new();
-        try!(file.read_to_end(&mut buf));
-        let map : HashMap<T, enc::Repr> = if !buf.is_empty() {
-            try!(deserialize(&buf))
-        } else {
-            HashMap::new()
-        };
-
-        Ok(Database {
-            file: Mutex::new(file),
-            data: RwLock::new(map),
-        })
-    }
-
-    /// Insert a given Object into the Database at that key
-    ///
-    /// This will overwrite any existing objects.
-    ///
-    /// The Object has to be serializable.
-    pub fn insert<S: Serialize, K: ?Sized>(&self, key: &K, obj: S) -> Result<()>
-        where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
-    {
-        use enc::serialize;
-        let mut map = try!(self.data.write());
-        map.insert(key.to_owned(), try!(serialize(&obj)));
-        Ok(())
-    }
-
-    /// Remove an Object at that key
-    pub fn delete<K: ?Sized>(&self, key: &K) -> Result<()>
-        where T: Borrow<K>, K: Hash + Eq
-    {
-        let mut map = try!(self.data.write());
-        map.remove(key.to_owned());
-        Ok(())
-    }
-
-    /// Retrieves an Object from the Database
-    ///
-    /// # Errors
-    ///
-    /// This will return an `Err(BreakError::NotFound)` if there is no key behind the object.
-    /// If you tried to request something that can't be serialized to then
-    /// `Err(BreakError::Deserialize)` will be returned.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustbreak::{Database, BreakError};
-    ///
-    /// let db = Database::open("/tmp/stuff").unwrap();
-    ///
-    /// for i in 0..5i64 {
-    ///     db.insert(&format!("num_{}", i), i*i*i).unwrap();
-    /// }
-    ///
-    /// let num : i64 = db.retrieve::<i64, str>("num_0").unwrap();
-    /// assert_eq!(num, 0);
-    /// match db.retrieve::<usize, str>("non-existent") {
-    ///     Err(BreakError::NotFound) => {},
-    ///     _ => panic!("Was still found?"),
-    /// }
-    ///
-    /// match db.retrieve::<Vec<String>, str>("num_1") {
-    ///     Err(_) => {},
-    ///     _ => panic!("Was deserialized?"),
-    /// }
-    /// ```
-    pub fn retrieve<S: DeserializeOwned, K: ?Sized>(&self, key: &K) -> Result<S>
-        where T: Borrow<K>, K: Hash + Eq
-    {
-        use enc::deserialize;
-        let map = try!(self.data.read());
-        match map.get(key.borrow()) {
-            Some(t) => Ok(try!(deserialize(t))),
-            None => Err(BreakError::NotFound),
-        }
-    }
-
-    /// Checks wether a given key exists in the Database
-    pub fn contains_key<S: DeserializeOwned, K: ?Sized>(&self, key: &K) -> Result<bool>
-        where T: Borrow<K>, K: Hash + Eq
-    {
-        let map = try!(self.data.read());
-        Ok(map.get(key.borrow()).is_some())
-    }
-
-    /// Flushes the Database to disk
-    pub fn flush(&self) -> Result<()> {
-        use enc::serialize;
-        use std::io::{Write, Seek, SeekFrom};
-
-        let map = try!(self.data.read());
-
-        let mut file = try!(self.file.lock());
-
-        let buf = try!(serialize(&*map));
-        try!(file.set_len(0));
-        try!(file.seek(SeekFrom::Start(0)));
-        try!(file.write(&buf.as_ref()));
-        try!(file.sync_all());
-        Ok(())
-    }
-
-    /// Starts a transaction
-    ///
-    /// A transaction passes through reads but caches writes. This means that if changes do happen
-    /// they are processed at the same time. To run them you have to call `run` on the
-    /// `Transaction` object.
-    pub fn transaction(&self) -> Transaction<T> {
-        Transaction {
-            lock: &self.data,
-            data: RwLock::new(HashMap::new()),
-        }
-    }
-
-    /// Locks the Database, making sure only the caller can change it
-    ///
-    /// This write-locks the Database until the `Lock` has been dropped.
+    /// This gives you an exclusive lock on the memory object. Trying to open the database in
+    /// writing will block if it is currently being written to.
     ///
     /// # Panics
     ///
-    /// If you panic while holding the lock it will get poisoned and subsequent calls to it will
-    /// fail. You will have to re-open the Database to be able to continue accessing it.
-    pub fn lock(&self) -> Result<Lock<T>> {
-        let map = try!(self.data.write());
-        Ok(Lock {
-            lock: map,
+    /// If you panic in the closure, the database is poisoned. This means that any
+    /// subsequent writes/reads will fail with an `std::sync::PoisonError`.
+    /// You can only recover from this by re-creating the Database Object.
+    ///
+    /// If you do not have full control over the code being written, and cannot incur the cost of
+    /// having a single operation panicking then use `Database::write_safe`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # #[macro_use] extern crate serde_derive;
+    /// # extern crate rustbreak;
+    /// # extern crate serde;
+    /// # extern crate tempfile;
+    /// # extern crate failure;
+    /// use rustbreak::{FileDatabase, deser::Ron};
+    ///
+    /// #[derive(Debug, Serialize, Deserialize, Clone)]
+    /// struct Data {
+    ///     level: u32,
+    /// }
+    ///
+    /// # fn main() {
+    /// # let func = || -> Result<(), failure::Error> {
+    /// # let file = tempfile::tempfile()?;
+    /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
+    ///
+    /// db.write(|db| {
+    ///     db.level = 42;
+    /// })?;
+    ///
+    /// // You can also return from a `.read()`. But don't forget that you cannot return references
+    /// // into the structure
+    /// let value = db.read(|db| db.level)?;
+    /// assert_eq!(42, value);
+    /// # return Ok(());
+    /// # };
+    /// # func().unwrap();
+    /// # }
+    /// ```
+    pub fn write<T>(&self, task: T) -> error::Result<()>
+        where T: FnOnce(&mut Data)
+    {
+        let mut lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        task(&mut lock);
+        Ok(())
+    }
+
+    /// Write lock the database and get write access to the `Data` container in a safe way
+    ///
+    /// This gives you an exclusive lock on the memory object. Trying to open the database in
+    /// writing will block if it is currently being written to.
+    ///
+    /// This differs to `Database::write` in that a clone of the internal data is made, which is
+    /// then passed to the closure. Only if the closure doesn't panic is the internal model
+    /// updated.
+    ///
+    /// Depending on the size of the database this can be very costly. This is a tradeoff to make
+    /// for panic safety.
+    ///
+    /// You should read the documentation about this:
+    /// [UnwindSafe](https://doc.rust-lang.org/std/panic/trait.UnwindSafe.html)
+    ///
+    /// # Panics
+    ///
+    /// When the closure panics, it is caught and a `error::RustbreakErrorKind::WritePanic` will be
+    /// returned.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # #[macro_use] extern crate serde_derive;
+    /// # extern crate rustbreak;
+    /// # extern crate serde;
+    /// # extern crate tempfile;
+    /// # extern crate failure;
+    /// use rustbreak::{
+    ///     FileDatabase,
+    ///     deser::Ron,
+    ///     error::{
+    ///         RustbreakError,
+    ///         RustbreakErrorKind,
+    ///     }
+    /// };
+    ///
+    /// #[derive(Debug, Serialize, Deserialize, Clone)]
+    /// struct Data {
+    ///     level: u32,
+    /// }
+    ///
+    /// # fn main() {
+    /// # let func = || -> Result<(), failure::Error> {
+    /// # let file = tempfile::tempfile()?;
+    /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
+    ///
+    /// let mut level = 0;
+    ///
+    /// let result = db.write_safe(|db| {
+    ///     db.level = 42;
+    ///     panic!("We panic inside the write code.");
+    /// }).expect_err("This should have been caught");
+    ///
+    /// match result.kind() {
+    ///     RustbreakErrorKind::WritePanic => {
+    ///         // We can now handle this, in this example we will just ignore it
+    ///     }
+    ///     e => {
+    ///         println!("{:#?}", e);
+    ///         // You should always have generic error catching here.
+    ///         // This future-proofs your code, and makes your code more robust.
+    ///         // In this example this is unreachable though, and to assert that we have this
+    ///         // macro here
+    ///         unreachable!();
+    ///     }
+    /// }
+    ///
+    /// // We read it back out again, it has not changed
+    /// let value = db.read(|db| db.level)?;
+    /// assert_eq!(0, value);
+    /// # return Ok(());
+    /// # };
+    /// # func().unwrap();
+    /// # }
+    /// ```
+    pub fn write_safe<T>(&self, task: T) -> error::Result<()>
+        where T: FnOnce(&mut Data) + std::panic::UnwindSafe,
+    {
+        let mut lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut data = lock.clone();
+        ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
+            task(&mut data);
+        })).map_err(|_| error::RustbreakErrorKind::WritePanic)?;
+        *lock = data;
+        Ok(())
+    }
+
+    /// Read lock the database and get write access to the `Data` container
+    ///
+    /// This gives you a read-only lock on the database. You can have as many readers in parallel
+    /// as you wish.
+    ///
+    /// # Errors
+    ///
+    /// May return:
+    ///
+    /// - `error::RustbreakErrorKind::Backend`
+    ///
+    /// # Panics
+    ///
+    /// If you panic in the closure, the database is poisoned. This means that any
+    /// subsequent writes/reads will fail with an `error::RustbreakErrorKind::Poison`.
+    /// You can only recover from this by re-creating the Database Object.
+    pub fn read<T, R>(&self, task: T) -> error::Result<R>
+        where T: FnOnce(&Data) -> R
+    {
+        let mut lock = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        Ok(task(&mut lock))
+    }
+
+    fn inner_load(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
+        let new_data = deser.deserialize(
+            &backend.get_data().context(error::RustbreakErrorKind::Backend)?[..]
+        ).context(error::RustbreakErrorKind::Deserialization)?;
+
+        Ok(new_data)
+    }
+
+    /// Load the Data from the backend
+    pub fn load(&self) -> error::Result<()> {
+        let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
+
+        *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
+        Ok(())
+    }
+
+    /// Flush the data structure to the backend
+    pub fn save(&self) -> error::Result<()> {
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+
+        let ser = self.deser.serialize(&*data)
+                    .context(error::RustbreakErrorKind::Serialization)?;
+
+        backend.put_data(&ser).context(error::RustbreakErrorKind::Backend)?;
+        Ok(())
+    }
+
+    /// Get a clone of the data as it is in memory right now
+    ///
+    /// To make sure you have the latest data, call this method with `load` true
+    pub fn get_data(&self, load: bool) -> error::Result<Data> {
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        if load {
+            *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
+            drop(backend);
+        }
+        Ok(data.clone())
+    }
+
+    /// Puts the data as is into memory
+    ///
+    /// To save the data afterwards, call with `save` true.
+    pub fn put_data(&self, new_data: Data, save: bool) -> error::Result<()> {
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        if save {
+            // TODO: Spin this into its own method
+            let ser = self.deser.serialize(&*data)
+                        .context(error::RustbreakErrorKind::Serialization)?;
+
+            backend.put_data(&ser).context(error::RustbreakErrorKind::Backend)?;
+            drop(backend);
+        }
+        *data = new_data;
+        Ok(())
+    }
+
+    /// Create a database from its constituents
+    pub fn from_parts(data: Data, backend: Back, deser: DeSer) -> Database<Data, Back, DeSer> {
+        Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser: deser,
+        }
+    }
+
+    /// Break a database into its individual parts
+    pub fn into_inner(self) -> error::Result<(Data, Back, DeSer)> {
+        Ok((self.data.into_inner().map_err(|_| error::RustbreakErrorKind::Poison)?,
+            self.backend.into_inner().map_err(|_| error::RustbreakErrorKind::Poison)?,
+            self.deser))
+    }
+
+    /// Tries to clone the Data in the Database.
+    ///
+    /// This method returns a `MemoryDatabase` which has an empty vector as a
+    /// backend initially. This means that the user is responsible for assigning a new backend
+    /// if an alternative is wanted.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # #[macro_use] extern crate serde_derive;
+    /// # extern crate rustbreak;
+    /// # extern crate serde;
+    /// # extern crate tempfile;
+    /// # extern crate failure;
+    /// use rustbreak::{FileDatabase, deser::Ron};
+    ///
+    /// #[derive(Debug, Serialize, Deserialize, Clone)]
+    /// struct Data {
+    ///     level: u32,
+    /// }
+    ///
+    /// # fn main() {
+    /// # let func = || -> Result<(), failure::Error> {
+    /// # let file = tempfile::tempfile()?;
+    /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
+    ///
+    /// db.write(|db| {
+    ///     db.level = 42;
+    /// })?;
+    ///
+    /// db.save()?;
+    ///
+    /// let other_db = db.try_clone()?;
+    ///
+    /// // You can also return from a `.read()`. But don't forget that you cannot return references
+    /// // into the structure
+    /// let value = other_db.read(|db| db.level)?;
+    /// assert_eq!(42, value);
+    /// # return Ok(());
+    /// # };
+    /// # func().unwrap();
+    /// # }
+    /// ```
+    pub fn try_clone(&self) -> error::Result<MemoryDatabase<Data, DeSer>> {
+        let lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+
+        Ok(Database {
+            data: RwLock::new(lock.clone()),
+            backend: Mutex::new(MemoryBackend::new()),
+            deser: self.deser.clone(),
         })
     }
 }
 
-/// Structure representing a lock of the Database
-pub struct Lock<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> {
-    lock: RwLockWriteGuard<'a, HashMap<T, enc::Repr>>,
-}
+/// A database backed by a file
+pub type FileDatabase<D, DS> = Database<D, FileBackend, DS>;
 
-impl<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> Lock<'a, T> {
-    /// Insert a given Object into the Database at that key
-    ///
-    /// See `Database::insert` for details
-    pub fn insert<S: Serialize, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
-        where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
+impl<Data, DeSer> Database<Data, FileBackend, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+{
+    /// Create new FileDatabase from Path
+    pub fn from_path<S>(path: S, data: Data)
+        -> error::Result<FileDatabase<Data, DeSer>>
+        where S: AsRef<std::path::Path>
     {
-        use enc::serialize;
-        self.lock.insert(key.to_owned(), try!(serialize(&obj)));
-        Ok(())
+        let backend = FileBackend::open(path).context(error::RustbreakErrorKind::Backend)?;
+
+        Ok(Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser: DeSer::default(),
+        })
     }
 
-    /// Retrieves an Object from the Database
-    ///
-    /// See `Database::retrieve` for details
-    pub fn retrieve<S: DeserializeOwned, K: ?Sized>(&mut self, key: &K) -> Result<S>
-        where T: Borrow<K>, K: Hash + Eq
+    /// Create new FileDatabase from a file
+    pub fn from_file(file: ::std::fs::File, data: Data) -> error::Result<FileDatabase<Data, DeSer>>
     {
-        use enc::deserialize;
-        match self.lock.get(key.borrow()) {
-            Some(t) => Ok(try!(deserialize(t))),
-            None => Err(BreakError::NotFound),
-        }
-    }
+        let backend = FileBackend::from_file(file);
 
-    /// Starts a transaction
-    ///
-    /// See `Database::transaction` for details
-    pub fn transaction<'b>(&'b mut self) -> TransactionLock<'a, 'b, T> {
-        TransactionLock {
-            lock: self,
-            data: RwLock::new(HashMap::new()),
-        }
-    }
-
-}
-
-/// A `TransactionLock` that is atomic in writes and defensive
-///
-/// You generate this by calling `transaction` on a `Lock`
-/// The transactionlock does not get automatically applied when it is dropped, you have to `run` it.
-/// This allows for defensive programming where the values are only applied once it is `run`.
-pub struct TransactionLock<'a: 'b, 'b, T: Serialize + DeserializeOwned + Eq + Hash + 'a> {
-    lock: &'b mut Lock<'a, T>,
-    data: RwLock<HashMap<T, enc::Repr>>,
-}
-
-impl<'a: 'b, 'b, T: Serialize + DeserializeOwned + Eq + Hash + 'a> TransactionLock<'a, 'b, T> {
-    /// Insert a given Object into the Database at that key
-    ///
-    /// See `Database::insert` for details
-    pub fn insert<S: Serialize, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
-        where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
-    {
-        use enc::serialize;
-
-        let mut map = try!(self.data.write());
-
-        map.insert(key.to_owned(), try!(serialize(&obj)));
-
-        Ok(())
-    }
-
-    /// Retrieves an Object from the Database
-    ///
-    /// See `Database::retrieve` for details
-    pub fn retrieve<S: DeserializeOwned, K: ?Sized>(&mut self, key: &K) -> Result<S>
-        where T: Borrow<K>, K: Hash + Eq
-    {
-        use enc::deserialize;
-        let other_map = &mut self.lock.lock;
-        if other_map.contains_key(key) {
-            match other_map.get(key.borrow()) {
-                Some(t) => Ok(try!(deserialize(t))),
-                None => Err(BreakError::NotFound),
-            }
-        } else {
-            let map =  try!(self.data.read());
-            match map.get(key.borrow()) {
-                Some(t) => Ok(try!(deserialize(t))),
-                None => Err(BreakError::NotFound),
-            }
-        }
-    }
-
-    /// Consumes the TransactionLock and runs it
-    pub fn run(self) -> Result<()> {
-        let other_map = &mut self.lock.lock;
-
-        let mut map = try!(self.data.write());
-
-        for (k, v) in map.drain() {
-            other_map.insert(k, v);
-        }
-
-        Ok(())
+        Ok(Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser: DeSer::default(),
+        })
     }
 }
 
-/// A Transaction that is atomic in writes
-///
-/// You generate this by calling `transaction` on a `Database`
-/// The transaction does not get automatically applied when it is dropped, you have to `run` it.
-/// This allows for defensive programming where the values are only applied once it is `run`.
-pub struct Transaction<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> {
-    lock: &'a RwLock<HashMap<T, enc::Repr>>,
-    data: RwLock<HashMap<T, enc::Repr>>,
-}
+/// A database backed by a `Vec<u8>`
+pub type MemoryDatabase<D, DS> = Database<D, MemoryBackend, DS>;
 
-impl<'a, T: Serialize + DeserializeOwned + Eq + Hash + 'a> Transaction<'a, T> {
-    /// Insert a given Object into the Database at that key
-    ///
-    /// See `Database::insert` for details
-    pub fn insert<S: Serialize, K: ?Sized>(&mut self, key: &K, obj: S) -> Result<()>
-        where T: Borrow<K>, K: Hash + PartialEq + ToOwned<Owned=T>
-    {
-        use enc::serialize;
+impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+{
+    /// Create new FileDatabase from Path
+    pub fn memory(data: Data) -> error::Result<MemoryDatabase<Data, DeSer>> {
+        let backend = MemoryBackend::new();
 
-        let mut map = try!(self.data.write());
-
-        map.insert(key.to_owned(), try!(serialize(&obj)));
-
-        Ok(())
-    }
-
-    /// Retrieves an Object from the Database
-    ///
-    /// See `Database::retrieve` for details
-    pub fn retrieve<S: DeserializeOwned, K: ?Sized>(&self, key: &K) -> Result<S>
-        where T: Borrow<K>, K: Hash + Eq
-    {
-        use enc::deserialize;
-        let other_map = try!(self.lock.read());
-        if other_map.contains_key(key) {
-            match other_map.get(key.borrow()) {
-                Some(t) => Ok(try!(deserialize(t))),
-                None => Err(BreakError::NotFound),
-            }
-        } else {
-            let map =  try!(self.data.read());
-            match map.get(key.borrow()) {
-                Some(t) => Ok(try!(deserialize(t))),
-                None => Err(BreakError::NotFound),
-            }
-        }
-    }
-
-    /// Consumes the Transaction and runs it
-    pub fn run(self) -> Result<()> {
-        let mut other_map = try!(self.lock.write());
-
-        let mut map = try!(self.data.write());
-
-        for (k, v) in map.drain() {
-            other_map.insert(k, v);
-        }
-
-        Ok(())
+        Ok(Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser: DeSer::default(),
+        })
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::{Database,BreakError};
-    use tempfile::NamedTempFile;
-
-    #[test]
-    fn insert_and_delete() {
-        let tmpf = NamedTempFile::new().unwrap();
-        let db = Database::open(tmpf.path()).unwrap();
-
-        db.insert("test", "Hello World!").unwrap();
-        db.delete("test").unwrap();
-        let hello : Result<String,BreakError> = db.retrieve("test");
-        assert!(hello.is_err())
-    }
-
-    #[test]
-    fn simple_insert_and_retrieve() {
-        let tmpf = NamedTempFile::new().unwrap();
-        let db = Database::open(tmpf.path()).unwrap();
-
-        db.insert("test", "Hello World!").unwrap();
-        let hello : String = db.retrieve("test").unwrap();
-        assert_eq!(hello, "Hello World!");
-    }
-
-    #[test]
-    fn simple_insert_and_retrieve_borrow() {
-        let tmpf = NamedTempFile::new().unwrap();
-        let db = Database::open(tmpf.path()).unwrap();
-
-        db.insert("test", &25).unwrap();
-        let hello : u32 = db.retrieve("test").unwrap();
-        assert_eq!(hello, 25);
-    }
-
-    #[test]
-    fn test_persistence() {
-        let tmpf = NamedTempFile::new().unwrap();
-        let db = Database::open(tmpf.path()).unwrap();
-        db.insert("test", "Hello World!").unwrap();
-        db.flush().unwrap();
-        drop(db);
-        let db : Database<String> = Database::open(tmpf.path()).unwrap();
-        let hello : String = db.retrieve("test").unwrap();
-        assert_eq!(hello, "Hello World!");
-    }
-
-    #[test]
-    fn simple_transaction() {
-        let tmpf = NamedTempFile::new().unwrap();
-        let db = Database::open(tmpf.path()).unwrap();
-        assert!(db.retrieve::<String, str>("test").is_err());
-        {
-            let mut trans = db.transaction();
-            trans.insert("test", "Hello World!").unwrap();
-            trans.run().unwrap();
+impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
+    /// Exchanges the DeSerialization strategy with the new one
+    pub fn with_deser<T>(self, deser: T) -> Database<Data, Back, T>
+    {
+        Database {
+            backend: self.backend,
+            data: self.data,
+            deser: deser,
         }
-        {
-            let mut trans = db.transaction();
-            trans.insert("test", "Hello World too!!").unwrap();
-            drop(trans);
-        }
-        let hello : String = db.retrieve("test").unwrap();
-        assert_eq!(hello, "Hello World!");
     }
+}
 
-    #[test]
-    fn multithreaded_locking() {
-        use std::sync::Arc;
-        let tmpf = NamedTempFile::new().unwrap();
-        let db = Arc::new(Database::open(tmpf.path()).unwrap());
-        db.insert("value", 0i64).unwrap();
-        let mut threads = vec![];
-        for _ in 0..10 {
-            use std::thread;
-            let a = db.clone();
-            threads.push(thread::spawn(move || {
-                let mut lock = a.lock().unwrap();
-                {
-                    let mut trans = lock.transaction();
-                    let x = trans.retrieve::<i64, str>("value").unwrap();
-                    trans.insert("value", x + 1).unwrap();
-                    trans.run().unwrap();
-                }
-                {
-                    let mut trans = lock.transaction();
-                    let x = trans.retrieve::<i64, str>("value").unwrap();
-                    trans.insert("value", x - 1).unwrap();
-                    drop(trans);
-                }
-            }));
+impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
+    /// Exchanges the Backend with the new one
+    ///
+    /// The new backend does not necessarily have the latest data saved to it, so a `.save` should
+    /// be called to make sure that it is saved.
+    pub fn with_backend<T>(self, backend: T) -> Database<Data, T, DeSer>
+    {
+        Database {
+            backend: Mutex::new(backend),
+            data: self.data,
+            deser: self.deser,
         }
-        for thr in threads {
-            thr.join().unwrap();
-        }
-        let x = db.retrieve::<i64, str>("value").unwrap();
-        assert_eq!(x, 10);
+    }
+}
+
+impl<Data, Back, DeSer> Database<Data, Back, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        Back: Backend + Debug,
+        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+{
+    /// Converts from one data type to another
+    ///
+    /// This method is useful to migrate from one datatype to another
+    pub fn convert_data<C, OutputData>(self, convert: C)
+        -> error::Result<Database<OutputData, Back, DeSer>>
+        where
+            OutputData: Serialize + DeserializeOwned + Debug + Clone + Send,
+            C: FnOnce(Data) -> OutputData,
+            DeSer: DeSerializer<OutputData> + Debug + Send + Sync,
+    {
+        let (data, backend, deser) = self.into_inner()?;
+        Ok(Database {
+            data: RwLock::new(convert(data)),
+            backend: Mutex::new(backend),
+            deser: deser,
+        })
     }
 }

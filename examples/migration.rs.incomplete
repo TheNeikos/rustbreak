@@ -1,0 +1,183 @@
+/* This file is a complete work in progress! And is meant to illustrate a possible way of
+ * migrating databases with Rustbreak.
+ *
+ * Currently the major challenge is to statically define the upgrade process.
+ *
+ * This is currently done by using the `upgrading_macro`.
+ *
+ * The idea is to read the 'version' tag in the file, load it into a simple tag struct and
+ * read the version from there. This version is then used to dynamically get the corresponding
+ * struct type. This then gets converted to the latest version.
+ */
+
+
+extern crate rustbreak;
+#[macro_use] extern crate serde_derive;
+
+use rustbreak::FileDatabase;
+use rustbreak::deser::Ron;
+
+mod data {
+    #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+    pub enum Version {
+        First, Second, Third,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct Versioning {
+        pub version: Version
+    }
+
+    pub mod v1 {
+        use data::Version;
+        use std::collections::HashMap;
+
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        pub struct Players {
+            version: Version,
+            pub players: HashMap<i32, String>,
+        }
+
+        impl Players {
+            pub fn new() -> Players {
+                Players {
+                    version: Version::First,
+                    players: HashMap::new(),
+                }
+            }
+        }
+    }
+
+    pub mod v2 {
+        use data::Version;
+        use std::collections::HashMap;
+
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        pub struct Player {
+            pub name: String,
+            pub level: i32,
+        }
+
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        pub struct Players {
+            version: Version,
+            pub players: HashMap<i32, Player>,
+        }
+
+        impl Players {
+            pub fn new() -> Players {
+                Players {
+                    version: Version::Second,
+                    players: HashMap::new(),
+                }
+            }
+        }
+    }
+
+    pub mod v3 {
+        use data::Version;
+        use std::collections::HashMap;
+
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        pub struct Player {
+            pub name: String,
+            pub score: i64
+        }
+
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        pub struct Players {
+            version: Version,
+            pub players: HashMap<i32, Player>,
+        }
+
+        impl Players {
+            pub fn new() -> Players {
+                Players {
+                    version: Version::Third,
+                    players: HashMap::new(),
+                }
+            }
+        }
+    }
+
+    pub fn convert_v1_v2(input: v1::Players) -> v2::Players {
+        let mut new = v2::Players::new();
+        for (key, player) in input.players {
+            new.players.insert(key,
+                               v2::Player {
+                                   name: player,
+                                   level: 1
+                               });
+        }
+
+        new
+    }
+
+    pub fn convert_v2_v3(input: v2::Players) -> v3::Players {
+        let mut new = v3::Players::new();
+        for (key, player) in input.players {
+            new.players.insert(key,
+                               v3::Player {
+                                   name: player.name,
+                                   score: 0
+                               });
+        }
+
+        new
+    }
+}
+
+macro_rules! migration_rules {
+    ( $name:ident -> $res:ty { $( $t:ty => $conv:path ),* $(,)* } ) => {
+        fn $name<T: 'static>(input: T) -> Option<$res> {
+            fn inner(mut input: Box<std::any::Any>) -> Option<$res> {
+                println!("We have: {:#?}", input);
+                $(
+                    {
+                        let mut maybe_in = None;
+                        if let Some(out) = input.downcast_ref::<$t>() {
+                            maybe_in = Some(Box::new($conv(out.clone())));
+                        }
+
+                        if let Some(inp) = maybe_in {
+                            input = inp;
+                        }
+                    }
+                )*
+
+                if let Ok(out) = input.downcast::<$res>() {
+                    return Some(*out);
+                }
+
+                None
+            }
+            inner(Box::new(input))
+        }
+    }
+}
+
+migration_rules! {
+    update_database -> data::v3::Players {
+        data::v1::Players => data::convert_v1_v2,
+        data::v2::Players => data::convert_v2_v3,
+    }
+}
+
+fn get_version() -> data::Version {
+    let db = FileDatabase::<data::Versioning, Ron>::from_path("migration.ron", data::Versioning { version: data::Version::First }).unwrap();
+    db.load().unwrap();
+    db.read(|ver| ver.version).unwrap()
+}
+
+fn main() {
+    use data::v3::Players;
+
+    let version = get_version();
+
+
+    // Let's check if there are any updates
+    let updated_data = update_database(database.get_data(false).unwrap()).unwrap();
+    let database = FileDatabase::<Players, Ron>::from_path("migration.ron", updated_data).unwrap();
+
+    println!("{:#?}", database);
+}

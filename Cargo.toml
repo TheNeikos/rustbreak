@@ -1,29 +1,46 @@
 [package]
 authors = ["Marcel Müller <neikos@neikos.email>"]
-description = "A single file database"
-documentation = "http://neikos.me/rustbreak/rustbreak/index.html"
+description = "A modular and configurable database"
+documentation = "https://docs.rs/rustbreak"
 homepage = "https://github.com/TheNeikos/rustbreak"
-keywords = ["database", "simple", "fast", "daybreak", "rustbreak"]
+keywords = ["database", "simple", "fast", "rustbreak"]
 license = "MPL-2.0"
 name = "rustbreak"
 readme = "README.md"
 repository = "https://github.com/TheNeikos/rustbreak"
-version = "1.4.0"
+version = "2.0.0-rc2"
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
-bincode = { version = "0.8", optional = true }
-serde_yaml = { version = "0.7", optional = true }
-ron = { version = "0.1.3", optional = true }
-fs2 = "0.4"
-quick-error = "1.1.0"
+failure = "0.1.1"
 serde = "1"
 
+[dependencies.ron]
+optional = true
+version = "0.2.0"
+
+[dependencies.base64]
+optional = true
+version = "0.9.0"
+
+[dependencies.bincode]
+optional = true
+version = "1"
+
+[dependencies.serde_yaml]
+optional = true
+version = "0.7"
+
 [dev-dependencies]
-tempfile = "2.1"
-lazy_static = "0.2.1"
+lazy_static = "1"
+serde_derive = "1"
+tempfile = "3"
 
 [features]
-default = ["bin"]
-bin = ["bincode"]
-yaml = ["serde_yaml"]
+default = []
 ron_enc = ["ron"]
+bin_enc = ["bincode", "base64"]
+yaml_enc = ["serde_yaml"]
+

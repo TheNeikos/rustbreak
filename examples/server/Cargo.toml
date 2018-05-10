@@ -1,0 +1,19 @@
+[package]
+authors = ["Marcel Müller <neikos@neikos.email>"]
+name = "server"
+version = "0.1.0"
+
+[dependencies]
+rocket = "0.3.3"
+rocket_codegen = "0.3.3"
+serde = "1.0.23"
+serde_derive = "1.0.23"
+
+[dependencies.rocket_contrib]
+default-features = false
+features = ["handlebars_templates"]
+version = "0.3.3"
+
+[dependencies.rustbreak]
+path = "../.."
+features = ["ron_enc"]

@@ -2,8 +2,8 @@ extern crate rustbreak;
 #[macro_use] extern crate serde_derive;
 extern crate failure;
 
-use rustbreak::FileDatabase;
-use rustbreak::deser::Ron;
+use rustbreak::{FileDatabase, backend::FileBackend};
+use rustbreak::deser::{Ron, Yaml};
 
 #[derive(Eq, PartialEq, Debug, Serialize, Deserialize, Clone)]
 enum Country {
@@ -37,14 +37,10 @@ fn do_main() -> Result<(), failure::Error> {
     println!("Syncing Database");
     db.save()?;
 
-    println!("Loading Database");
-    db.load()?;
+    // Now lets switch it
 
-    println!("Reading from Database");
-    db.read(|db| {
-        println!("Results:");
-        println!("{:#?}", db);
-    })?;
+    let db = db.with_deser(Yaml).with_backend(FileBackend::open("test.yml")?);
+    db.save()?;
 
     Ok(())
 }
@@ -55,3 +51,4 @@ fn main() {
         ::std::process::exit(1);
     }
 }
+

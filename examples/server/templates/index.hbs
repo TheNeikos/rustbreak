@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Rustbreak Pastes</title>
+        <link rel="stylesheet" type="text/css"
+			  href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.min.css">
+    </head>
+    <body>
+
+        {{#if logged_in }}
+            <div class="container">
+                <div>
+                    You are logged in as: <strong>{{user}}</strong>
+                </div>
+                <form action="/paste" method="post">
+                    <div class="field">
+                      <label class="label is-small">Name</label>
+                      <div class="control">
+                          <textarea class="textarea" name="body" row="4"></textarea>
+                      </div>
+                    </div>
+                    <div class="field">
+                        <div class="control is-small">
+                            <button class="button is-link is-small">Submit</button>
+                        </div>
+                    </div>
+            </form>
+            </div>
+        {{else}}
+            <div class="container">
+                <div class="columns">
+                    <form action="/login" method="post" class="column">
+                        <div class="field">
+                          <label class="label is-small">Name</label>
+                          <div class="control is-small">
+                            <input class="input is-small" type="text" placeholder="Username" name="username">
+                          </div>
+                        </div>
+                        <div class="field">
+                          <label class="label is-small">Password</label>
+                          <div class="control is-small">
+                            <input class="input is-small" type="password" placeholder="Username" name="password">
+                          </div>
+                        </div>
+                        <div class="field">
+                            <div class="control is-small">
+                                <button class="button is-link is-small">Login</button>
+                            </div>
+                        </div>
+                    </form>
+                    <form action="/register" method="post" class="column">
+                        <div class="field">
+                          <label class="label is-small">Name</label>
+                          <div class="control is-small">
+                            <input class="input is-small" type="text" placeholder="Username" name="username">
+                          </div>
+                        </div>
+                        <div class="field">
+                          <label class="label is-small">Password</label>
+                          <div class="control is-small">
+                            <input class="input is-small" type="password" placeholder="Username" name="password">
+                          </div>
+                        </div>
+                        <div class="field">
+                            <div class="control is-small">
+                                <button class="button is-small is-link">Register</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {{/if}}
+
+        <hr>
+
+        <div class="container">
+            <h1 class="title">Pastes</h1>
+
+            {{#each pastes as |p| ~}}
+                <div class="box">
+                    <article class="media">
+                        <div class="media-content">
+                            <p>
+                                <strong>{{p.user}}</strong><br>
+                                {{p.body}}
+                            <p>
+                        </div>
+                    </article>
+                </div>
+            {{/each~}}
+        </div>
+		<footer class="footer">
+			<div class="container">
+                <div class="content has-text-centered">
+                    <p>
+                        Made with love in Germany &mdash; Created using Rocket, Handlebars and Rustbreak
+                    </p>
+                    <a href="https://bulma.io">
+                        <img src="https://bulma.io/images/made-with-bulma.png" alt="Made with Bulma" width="128" height="24">
+                    </a>
+                </div>
+			</div>
+		</footer>
+    </body>
+</html>

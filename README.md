@@ -26,73 +26,120 @@ Features
 
 - Simple To Use, Fast, Secure
 - Threadsafe
-- Key/Value Storage
-- bincode or yaml storage
+- Serde compatible storage (ron, bincode, or yaml included)
+
+Quickstart
+----------
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies.rustbreak]
+version = "2"
+features = ["ron_enc"] # You can also use "yaml_enc" or "bin_enc"
+                       # Check the documentation to add your own!
+```
+
+```rust
+# extern crate failure;
+# extern crate rustbreak;
+# use std::collections::HashMap;
+use rustbreak::{MemoryDatabase, deser::Ron};
+
+# fn main() {
+# let func = || -> Result<(), failure::Error> {
+let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
+
+println!("Writing to Database");
+db.write(|db| {
+    db.insert(0, String::from("world"));
+    db.insert(1, String::from("bar"));
+});
+
+db.read(|db| {
+    // db.insert("foo".into(), String::from("bar"));
+    // The above line will not compile since we are only reading
+    println!("Hello: {:?}", db.get(&0));
+})?;
+# return Ok(()); };
+# func().unwrap();
+# }
+```
 
 Usage
 -----
 
 Usage is quite simple:
 
-- Create/open a database using `Database::open`
-    - You can specify the kind of Key you want using this Syntax:
-      `Database::<Key>::open`
-- `Insert`/`Retrieve` data from the Database
-- Don't forget to run `flush` periodically
+- Create/open a database using one of the Database constructors:
+    - Create a `FileDatabase` with `FileDatabase::from_path`
+    - Create a `MemoryDatabase` with `MemoryDatabase::memory`
+    - Create a `Database` with `Database::from_parts`
+- `Write`/`Read` data from the Database
+- Don't forget to run `save` periodically, or whenever it makes sense.
+    - You can save in parallel to using the Database. However you will lock
+      write acess while it is being written to storage.
 
 ```rust
-use rustbreak::Database;
+# use std::collections::HashMap;
+use rustbreak::{MemoryDatabase, deser::Ron};
 
-fn main() {
-    let db = Database::open("my_contacts").unwrap();
+let db = MemoryDatabase::<HashMap<String, String>, Ron>::memory(HashMap::new(), Ron);
 
-    db.insert("Lapfox", "lapfoxtrax.com").unwrap();
-    db.insert("Rust", "github.com/rust-lang/rust").unwrap();
+println!("Writing to Database");
+db.write(|db| {
+    db.insert("hello".into(), String::from("world"));
+    db.insert("foo".into(), String::from("bar"));
+});
 
-    // we need to be explicit about the kind of type we want as println! is
-    // generic
-    let rust : String = db.retrieve("Rust").unwrap();
-    println!("You can find Rust at: {}", rust);
-    db.flush().unwrap();
-}
+db.read(|db| {
+    // db.insert("foo".into(), String::from("bar"));
+    // The above line will not compile since we are only reading
+    println!("Hello: {:?}", db.get("hello"));
+});
 ```
+
+## Encodings
+
+The following parts explain how to enable the respective features. You can also
+enable several at the same time.
 
 ### Yaml
 
-If you would like to use yaml instead of bincode to perhaps read or modify the
-database in an editor you can use it like this:
-
-- Disable default features
-- Specify yaml as a feature
+If you would like to use yaml you need to specify `yaml_enc` as a feature:
 
 ```toml
 [dependencies.rustbreak]
 version = "1"
-default-features = false
-features = ["yaml"]
+features = ["yaml_enc"]
 ```
+
+You can now use `rustbreak::deser::Yaml` as deserialization struct.
 
 ### Ron
 
-If you would like to use [`ron`](https://github.com/ron-rs/ron) instead of bincode:
-
-- Disable default features
-- Specify ron_enc as a feature
+If you would like to use [`ron`](https://github.com/ron-rs/ron) you need to
+specify `ron_enc` as a feature:
 
 ```toml
 [dependencies.rustbreak]
 version = "1"
-default-features = false
 features = ["ron_enc"]
 ```
 
-How it works
-------------
+You can now use `rustbreak::deser::Ron` as deserialization struct.
 
-Internally the Database holds a Hashmap behind a RwLock.
-This Hashmap is then written to/read from and safely casted to the requested
-type. This works thanks to encoding/decoding traits.
+### Bincode
 
+If you would like to use bincode you need to specify `bin_enc` as a feature:
+
+```toml
+[dependencies.rustbreak]
+version = "1"
+features = ["bin_enc"]
+```
+
+You can now use `rustbreak::deser::Bincode` as deserialization struct.
 
 
 [doc]:http://neikos.me/rustbreak/rustbreak/index.html
