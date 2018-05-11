@@ -89,6 +89,31 @@
 //! # }
 //! ```
 //!
+//! Or alternatively:
+//! ```rust
+//! # extern crate failure;
+//! # extern crate rustbreak;
+//! # use std::collections::HashMap;
+//! use rustbreak::{MemoryDatabase, deser::Ron};
+//!
+//! # fn main() {
+//! # let func = || -> Result<(), failure::Error> {
+//! let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
+//!
+//! println!("Writing to Database");
+//! {
+//!     let mut data = db.borrow_data_mut()?;
+//!     data.insert(0, String::from("world"));
+//!     data.insert(1, String::from("bar"));
+//! }
+//!
+//! let data = db.borrow_data()?;
+//! println!("Hello: {:?}", data.get(&0));
+//! # return Ok(()); };
+//! # func().unwrap();
+//! # }
+//! ```
+//!
 //! ## Error Handling
 //!
 //! Handling errors in Rustbreak is straightforward. Every `Result` has as its fail case as
@@ -145,7 +170,7 @@
 //! - `bin_enc` which enables the Bincode de/serialization
 //!
 //! [Enable them in your `Cargo.toml` file to use them.][features] You can safely have them all
-//! turned on per-default. The default feature is `ron`
+//! turned on per-default.
 //!
 //!
 //! [repo]: https://github.com/TheNeikos/rustbreak
@@ -184,7 +209,7 @@ pub use deser::DeSerializer;
 /// The general error used by the Rustbreak Module
 pub use error::RustbreakError;
 
-use std::sync::{Mutex, RwLock};
+use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::fmt::Debug;
 
 use serde::Serialize;
@@ -323,8 +348,6 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # let file = tempfile::tempfile()?;
     /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
     ///
-    /// let mut level = 0;
-    ///
     /// let result = db.write_safe(|db| {
     ///     db.level = 42;
     ///     panic!("We panic inside the write code.");
@@ -385,6 +408,97 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     {
         let mut lock = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
         Ok(task(&mut lock))
+    }
+
+    /// Read lock the database and get access to the underlying struct
+    ///
+    /// This gives you access to the underlying struct, allowing for simple read
+    /// only operations on it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # #[macro_use] extern crate serde_derive;
+    /// # extern crate rustbreak;
+    /// # extern crate serde;
+    /// # extern crate tempfile;
+    /// # extern crate failure;
+    /// use rustbreak::{FileDatabase, deser::Ron};
+    ///
+    /// #[derive(Debug, Serialize, Deserialize, Clone)]
+    /// struct Data {
+    ///     level: u32,
+    /// }
+    ///
+    /// # fn main() {
+    /// # let func = || -> Result<(), failure::Error> {
+    /// # let file = tempfile::tempfile()?;
+    /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
+    ///
+    /// db.write(|db| {
+    ///     db.level = 42;
+    /// })?;
+    ///
+    /// let data = db.borrow_data()?;
+    ///
+    /// assert_eq!(42, data.level);
+    /// # return Ok(());
+    /// # };
+    /// # func().unwrap();
+    /// # }
+    /// ```
+    pub fn borrow_data<'a>(&'a self) -> error::Result<RwLockReadGuard<'a, Data>> {
+        self.data.read().map_err(|_| error::RustbreakErrorKind::Poison.into())
+    }
+
+    /// Write lock the database and get access to the underlying struct
+    ///
+    /// This gives you access to the underlying struct, allowing you to modify it.
+    ///
+    /// # Panics
+    ///
+    /// If you panic while holding this reference, the database is poisoned. This means that any
+    /// subsequent writes/reads will fail with an `std::sync::PoisonError`.
+    /// You can only recover from this by re-creating the Database Object.
+    ///
+    /// If you do not have full control over the code being written, and cannot incur the cost of
+    /// having a single operation panicking then use `Database::write_safe`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # #[macro_use] extern crate serde_derive;
+    /// # extern crate rustbreak;
+    /// # extern crate serde;
+    /// # extern crate tempfile;
+    /// # extern crate failure;
+    /// use rustbreak::{FileDatabase, deser::Ron};
+    ///
+    /// #[derive(Debug, Serialize, Deserialize, Clone)]
+    /// struct Data {
+    ///     level: u32,
+    /// }
+    ///
+    /// # fn main() {
+    /// # let func = || -> Result<(), failure::Error> {
+    /// # let file = tempfile::tempfile()?;
+    /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
+    ///
+    /// {
+    ///     let mut data = db.borrow_data_mut()?;
+    ///     data.level = 42;
+    /// }
+    ///
+    /// let data = db.borrow_data()?;
+    ///
+    /// assert_eq!(42, data.level);
+    /// # return Ok(());
+    /// # };
+    /// # func().unwrap();
+    /// # }
+    /// ```
+    pub fn borrow_data_mut<'a>(&'a self) -> error::Result<RwLockWriteGuard<'a, Data>> {
+        self.data.write().map_err(|_| error::RustbreakErrorKind::Poison.into())
     }
 
     fn inner_load(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
