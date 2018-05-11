@@ -89,6 +89,31 @@
 //! # }
 //! ```
 //!
+//! Or alternatively:
+//! ```rust
+//! # extern crate failure;
+//! # extern crate rustbreak;
+//! # use std::collections::HashMap;
+//! use rustbreak::{MemoryDatabase, deser::Ron};
+//!
+//! # fn main() {
+//! # let func = || -> Result<(), failure::Error> {
+//! let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
+//!
+//! println!("Writing to Database");
+//! {
+//!     let mut data = db.borrow_data_mut()?;
+//!     data.insert(0, String::from("world"));
+//!     data.insert(1, String::from("bar"));
+//! }
+//!
+//! let data = db.borrow_data()?;
+//! println!("Hello: {:?}", data.get(&0));
+//! # return Ok(()); };
+//! # func().unwrap();
+//! # }
+//! ```
+//!
 //! ## Error Handling
 //!
 //! Handling errors in Rustbreak is straightforward. Every `Result` has as its fail case as
