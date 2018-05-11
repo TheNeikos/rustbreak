@@ -348,8 +348,6 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # let file = tempfile::tempfile()?;
     /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
     ///
-    /// let mut level = 0;
-    ///
     /// let result = db.write_safe(|db| {
     ///     db.level = 42;
     ///     panic!("We panic inside the write code.");
