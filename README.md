@@ -44,10 +44,10 @@ features = ["ron_enc"] # You can also use "yaml_enc" or "bin_enc"
 extern crate failure;
 extern crate rustbreak;
 use std::collections::HashMap;
-use rustbreak::{MemoryDatabase, deser::Ron};
+use rustbreak::{FileDatabase, deser::Ron};
 
 fn main() {
-    let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
+    let db = FileDatabase::<HashMap<u32, String>, Ron>::from_path("database.ron", HashMap::new())?;
 
     println!("Writing to Database");
     db.write(|db| {

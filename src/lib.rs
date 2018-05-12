@@ -67,11 +67,11 @@
 //! # extern crate failure;
 //! # extern crate rustbreak;
 //! # use std::collections::HashMap;
-//! use rustbreak::{MemoryDatabase, deser::Ron};
+//! use rustbreak::{FileDatabase, deser::Ron};
 //!
 //! # fn main() {
 //! # let func = || -> Result<(), failure::Error> {
-//! let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
+//! let db = FileDatabase::<HashMap<u32, String>, Ron>::from_path("database.ron", HashMap::new())?;
 //!
 //! println!("Writing to Database");
 //! db.write(|db| {
@@ -632,6 +632,12 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
 }
 
 /// A database backed by a file
+///
+/// It has two special methods associated to it:
+/// - `Database::from_path`, which opens/creates a file to the given path
+/// - `Database::from_file`, which creates a Database with the given file
+///     - This is useful if you want to choose your own strategy on how a given Database file is
+///     created
 pub type FileDatabase<D, DS> = Database<D, FileBackend, DS>;
 
 impl<Data, DeSer> Database<Data, FileBackend, DeSer>
@@ -667,6 +673,8 @@ impl<Data, DeSer> Database<Data, FileBackend, DeSer>
 }
 
 /// A database backed by a `Vec<u8>`
+///
+/// It has one special method for it `MemoryDatabase::open` which is a quick way to create one
 pub type MemoryDatabase<D, DS> = Database<D, MemoryBackend, DS>;
 
 impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
