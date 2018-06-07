@@ -46,7 +46,7 @@ extern crate rustbreak;
 use std::collections::HashMap;
 use rustbreak::{MemoryDatabase, deser::Ron};
 
-fn main() {
+fn main() -> Result<(), failure::Error> {
     let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
 
     println!("Writing to Database");
@@ -60,6 +60,8 @@ fn main() {
         // The above line will not compile since we are only reading
         println!("Hello: {:?}", db.get(&0));
     })?;
+
+    Ok(())
 }
 ```
 
@@ -141,4 +143,3 @@ You can now use `rustbreak::deser::Bincode` as deserialization struct.
 
 [doc]:http://neikos.me/rustbreak/rustbreak/index.html
 [Daybreak]:https://propublica.github.io/daybreak/
-
