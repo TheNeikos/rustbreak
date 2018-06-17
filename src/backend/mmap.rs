@@ -1,13 +1,11 @@
-extern crate memmap;
-extern crate failure;
-
-use self::failure::ResultExt;
+use memmap;
+use failure::ResultExt;
 
 use super::Backend;
 
-use ::error;
-use ::std::io;
-use ::std::cmp;
+use error;
+use std::io;
+use std::cmp;
 
 #[derive(Debug)]
 struct Mmap {
@@ -38,20 +36,23 @@ impl Mmap {
     }
 
     //Copies data to mmap and modifies data's end cursor.
-    fn write(&mut self, data: &[u8]) {
-        assert!(data.len() <= self.len);
+    fn write(&mut self, data: &[u8]) -> io::Result<()> {
+        if data.len() > self.len {
+            return Err(io::Error::new(io::ErrorKind::Other,
+                                      "Unexpected write beyond mmap's backend capacity. This is a rustbreak's bug"));
+        }
         self.end = data.len();
         self.as_mut_slice().copy_from_slice(data);
+        Ok(())
     }
 
-    #[inline]
     fn flush(&mut self) -> io::Result<()> {
         self.inner.flush()
     }
 
     //Increases mmap size by max(old_size*2, new_size)
     //Note that it doesn't copy original data
-    fn extend(&mut self, new_size: usize) -> io::Result<()> {
+    fn resize_no_copy(&mut self, new_size: usize) -> io::Result<()> {
         let len = cmp::max(self.len + self.len, new_size);
         //Make sure we don't discard old mmap before creating new one;
         let new_mmap = Self::new(len)?;
@@ -60,24 +61,23 @@ impl Mmap {
     }
 }
 
-#[derive(Debug)]
-/// A backend that uses anonymous mmap
+/// A backend that uses anonymous mmap.
 ///
-/// The Backend automatically creates bigger map
-/// on demand using following strategy approach:
+/// The `Backend` automatically creates bigger map
+/// on demand using following strategy:
 ///
 /// - If new data size allows, multiply size by 2.
-/// - Otherwise new data size
+/// - Otherwise new data size is used.
 ///
 /// Note that mmap is never shrink back.
 ///
 /// Use `Backend` methods to read and write into it.
+#[derive(Debug)]
 pub struct MmapStorage {
     mmap: Mmap
 }
 
 impl MmapStorage {
-    #[inline]
     ///Creates new storage with 1024b size.
     pub fn new() -> error::Result<Self> {
         Self::with_size(1024)
@@ -103,14 +103,13 @@ impl Backend for MmapStorage {
 
     fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
         if self.mmap.len < data.len() {
-            self.mmap.extend(data.len()).context(error::RustbreakErrorKind::Backend)?;
+            self.mmap.resize_no_copy(data.len()).context(error::RustbreakErrorKind::Backend)?;
         }
-        self.mmap.write(data);
+        self.mmap.write(data).context(error::RustbreakErrorKind::Backend)?;
         self.mmap.flush().context(error::RustbreakErrorKind::Backend)?;
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -147,5 +146,4 @@ mod tests {
         assert_eq!(storage.mmap.len, data.len());
         assert_eq!(storage.get_data().expect("To get data"), data);
     }
-
 }
