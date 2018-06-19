@@ -1,5 +1,6 @@
 sudo: false
 language: rust
+cache: cargo
 rust:
 - nightly
 - beta
@@ -12,3 +13,7 @@ script:
   cargo build --features $FEATURES &&
   cargo test --features $FEATURES &&
   cargo doc --features $FEATURES
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
