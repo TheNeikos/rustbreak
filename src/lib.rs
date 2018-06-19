@@ -163,11 +163,12 @@
 //!
 //! ## Features
 //!
-//! Rustbreak comes with three optional features:
+//! Rustbreak comes with following optional features:
 //!
 //! - `ron_enc` which enables the [Ron][ron] de/serialization
 //! - `yaml_enc` which enables the Yaml de/serialization
 //! - `bin_enc` which enables the Bincode de/serialization
+//! - 'mmap' whhich enables memory map backend.
 //!
 //! [Enable them in your `Cargo.toml` file to use them.][features] You can safely have them all
 //! turned on per-default.
@@ -195,6 +196,9 @@ extern crate bincode;
 #[cfg(feature = "bin_enc")]
 extern crate base64;
 
+#[cfg(feature = "mmap")]
+extern crate memmap;
+
 #[cfg(test)]
 extern crate tempfile;
 
@@ -217,6 +221,8 @@ use serde::de::DeserializeOwned;
 use failure::ResultExt;
 
 use backend::{Backend, MemoryBackend, FileBackend};
+#[cfg(feature = "mmap")]
+use backend::MmapStorage;
 
 /// The Central Database to RustBreak
 ///
@@ -677,6 +683,39 @@ impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
     /// Create new FileDatabase from Path
     pub fn memory(data: Data) -> error::Result<MemoryDatabase<Data, DeSer>> {
         let backend = MemoryBackend::new();
+
+        Ok(Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser: DeSer::default(),
+        })
+    }
+}
+
+/// A database backed by anonymous memory map.
+#[cfg(feature = "mmap")]
+pub type MmapDatabase<D, DS> = Database<D, MmapStorage, DS>;
+
+#[cfg(feature = "mmap")]
+impl<Data, DeSer> Database<Data, MmapStorage, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+{
+    /// Create new MmapDatabase.
+    pub fn mmap(data: Data) -> error::Result<MmapDatabase<Data, DeSer>> {
+        let backend = MmapStorage::new()?;
+
+        Ok(Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser: DeSer::default(),
+        })
+    }
+
+    /// Create new MmapDatabase with specified initial size.
+    pub fn mmap_with_size(data: Data, size: usize) -> error::Result<MmapDatabase<Data, DeSer>> {
+        let backend = MmapStorage::with_size(size)?;
 
         Ok(Database {
             data: RwLock::new(data),

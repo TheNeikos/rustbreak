@@ -7,7 +7,7 @@ rust:
 - stable
 env:
   global:
-    - FEATURES=yaml_enc,bin_enc,ron_enc
+    - FEATURES=yaml_enc,bin_enc,ron_enc,mmap
 script:
 - |
   cargo build --features $FEATURES &&

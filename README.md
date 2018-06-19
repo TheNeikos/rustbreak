@@ -71,9 +71,10 @@ Usage
 Usage is quite simple:
 
 - Create/open a database using one of the Database constructors:
-    - Create a `FileDatabase` with `FileDatabase::from_path`
-    - Create a `MemoryDatabase` with `MemoryDatabase::memory`
-    - Create a `Database` with `Database::from_parts`
+    - Create a `FileDatabase` with `FileDatabase::from_path`.
+    - Create a `MemoryDatabase` with `MemoryDatabase::memory`.
+    - Create a `MmapDatabase` with `MmapDatabase::mmap` or `MmapDatabase::mmap_with_size` with `mmap` feature.
+    - Create a `Database` with `Database::from_parts`.
 - `Write`/`Read` data from the Database
 - Don't forget to run `save` periodically, or whenever it makes sense.
     - You can save in parallel to using the Database. However you will lock

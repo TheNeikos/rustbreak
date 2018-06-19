@@ -25,6 +25,11 @@ pub trait Backend {
     fn put_data(&mut self, data: &[u8]) -> error::Result<()>;
 }
 
+#[cfg(feature = "mmap")]
+mod mmap;
+#[cfg(feature = "mmap")]
+pub use self::mmap::MmapStorage;
+
 /// A backend using a file
 #[derive(Debug)]
 pub struct FileBackend(::std::fs::File);
