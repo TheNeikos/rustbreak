@@ -19,10 +19,9 @@ struct Mmap {
 }
 
 impl Mmap {
-    fn new(len: usize) -> error::Result<Self> {
+    fn new(len: usize) -> io::Result<Self> {
         let inner = memmap::MmapOptions::new().len(len)
-                                              .map_anon()
-                                              .context(error::RustbreakErrorKind::Backend)?;
+            .map_anon()?;
 
         Ok(Self {
             inner,
@@ -55,7 +54,7 @@ impl Mmap {
 
     //Increases mmap size by max(old_size*2, new_size)
     //Note that it doesn't copy original data
-    fn resize_no_copy(&mut self, new_size: usize) -> error::Result<()> {
+    fn resize_no_copy(&mut self, new_size: usize) -> io::Result<()> {
         let len = cmp::max(self.len + self.len, new_size);
         //Make sure we don't discard old mmap before creating new one;
         let new_mmap = Self::new(len)?;
@@ -81,14 +80,14 @@ pub struct MmapStorage {
 }
 
 impl MmapStorage {
-    ///Creates new storage with 1024b size.
+    ///Creates new storage with 1024 bytes
     pub fn new() -> error::Result<Self> {
         Self::with_size(1024)
     }
 
     ///Creates new storage with custom size.
     pub fn with_size(len: usize) -> error::Result<Self> {
-        let mmap = Mmap::new(len)?;
+        let mmap = Mmap::new(len).context(error::RustbreakErrorKind::Backend)?;
 
         Ok(Self {
             mmap
@@ -106,7 +105,7 @@ impl Backend for MmapStorage {
 
     fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
         if self.mmap.len < data.len() {
-            self.mmap.resize_no_copy(data.len())?;
+            self.mmap.resize_no_copy(data.len()).context(error::RustbreakErrorKind::Backend)?;
         }
         self.mmap.write(data).context(error::RustbreakErrorKind::Backend)?;
         self.mmap.flush().context(error::RustbreakErrorKind::Backend)?;
