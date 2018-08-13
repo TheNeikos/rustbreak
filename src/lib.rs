@@ -299,12 +299,11 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # func().unwrap();
     /// # }
     /// ```
-    pub fn write<T>(&self, task: T) -> error::Result<()>
-        where T: FnOnce(&mut Data)
+    pub fn write<T, R>(&self, task: T) -> error::Result<R>
+        where T: FnOnce(&mut Data) -> R
     {
         let mut lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        task(&mut lock);
-        Ok(())
+        Ok(task(&mut lock))
     }
 
     /// Write lock the database and get write access to the `Data` container in a safe way
