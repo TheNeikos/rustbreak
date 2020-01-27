@@ -680,10 +680,12 @@ impl<Data, DeSer> Database<Data, PathBackend, DeSer>
 {
     /// Create new [`PathDatabase`] from a [`Path`](std::path::Path).
     pub fn from_path<S>(path: S, data: Data)
-        -> error::Result<FileDatabase<Data, DeSer>>
-        where S: AsRef<std::path::Path>
+        -> error::Result<PathDatabase<Data, DeSer>>
+        where S: ToOwned<Owned=std::path::PathBuf>,
+            std::path::PathBuf: std::borrow::Borrow<S>
     {
-        let backend = FileBackend::open(path).context(error::RustbreakErrorKind::Backend)?;
+        let backend = PathBackend::open(path.to_owned())
+            .context(error::RustbreakErrorKind::Backend)?;
 
         Ok(Database {
             data: RwLock::new(data),
