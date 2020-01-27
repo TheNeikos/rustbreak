@@ -30,6 +30,9 @@ mod mmap;
 #[cfg(feature = "mmap")]
 pub use self::mmap::MmapStorage;
 
+mod path;
+pub use self::path::PathBackend;
+
 /// A backend using a file
 #[derive(Debug)]
 pub struct FileBackend(::std::fs::File);
