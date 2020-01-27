@@ -16,6 +16,7 @@ all-features = true
 [dependencies]
 failure = "0.1.1"
 serde = "1"
+tempfile = "3"
 
 [dependencies.ron]
 optional = true
@@ -40,7 +41,6 @@ version = "0.6"
 [dev-dependencies]
 lazy_static = "1"
 serde_derive = "1"
-tempfile = "3"
 
 [features]
 default = []

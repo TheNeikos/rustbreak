@@ -199,7 +199,6 @@ extern crate base64;
 #[cfg(feature = "mmap")]
 extern crate memmap;
 
-#[cfg(test)]
 extern crate tempfile;
 
 /// The rustbreak errors that can be returned
@@ -220,7 +219,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use failure::ResultExt;
 
-use backend::{Backend, MemoryBackend, FileBackend};
+use backend::{Backend, MemoryBackend, FileBackend, PathBackend};
 #[cfg(feature = "mmap")]
 use backend::MmapStorage;
 
@@ -662,6 +661,29 @@ impl<Data, DeSer> Database<Data, FileBackend, DeSer>
     pub fn from_file(file: ::std::fs::File, data: Data) -> error::Result<FileDatabase<Data, DeSer>>
     {
         let backend = FileBackend::from_file(file);
+
+        Ok(Database {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser: DeSer::default(),
+        })
+    }
+}
+
+/// A database backed by a file, using atomic saves.
+pub type PathDatabase<D, DS> = Database<D, PathBackend, DS>;
+
+impl<Data, DeSer> Database<Data, PathBackend, DeSer>
+    where
+        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
+        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+{
+    /// Create new [`PathDatabase`] from a [`Path`](std::path::Path).
+    pub fn from_path<S>(path: S, data: Data)
+        -> error::Result<FileDatabase<Data, DeSer>>
+        where S: AsRef<std::path::Path>
+    {
+        let backend = FileBackend::open(path).context(error::RustbreakErrorKind::Backend)?;
 
         Ok(Database {
             data: RwLock::new(data),
