@@ -38,14 +38,18 @@
 //! Database. It is then encoded with Ron, Yaml, JSON, Bincode, anything really that uses Serde
 //! operations!
 //!
-//! There are two helper type aliases `MemoryDatabase` and `FileDatabase`, each backed by their
+//! There are three helper type aliases [`MemoryDatabase`], [`FileDatabase`], and [`PathDatabase`], each backed by their
 //! respective backend.
 //!
-//! The `MemoryBackend` saves its data into a `Vec<u8>`, which is not that useful on its own, but
+//! The [`MemoryBackend`] saves its data into a `Vec<u8>`, which is not that useful on its own, but
 //! is needed for compatibility with the rest of the Library.
 //!
-//! The `FileDatabase` is a classical file based database. You give it a path or a file, and it
+//! The [`FileDatabase`] is a classical file based database. You give it a path or a file, and it
 //! will use it as its storage. You still get to pick what encoding it uses.
+//!
+//! The [`PathDatabase`] is very similar, but always requires a path for creation. It features atomic
+//! saves, so that the old database contents won't be lost when panicing during the save. It
+//! should therefore be preferred to a [`FileDatabase`].
 //!
 //! Using the `with_deser` and `with_backend` one can switch between the representations one needs.
 //! Even at runtime! However this is only useful in a few scenarios.
@@ -680,10 +684,12 @@ impl<Data, DeSer> Database<Data, PathBackend, DeSer>
 {
     /// Create new [`PathDatabase`] from a [`Path`](std::path::Path).
     pub fn from_path<S>(path: S, data: Data)
-        -> error::Result<FileDatabase<Data, DeSer>>
-        where S: AsRef<std::path::Path>
+        -> error::Result<PathDatabase<Data, DeSer>>
+        where S: ToOwned<Owned=std::path::PathBuf>,
+            std::path::PathBuf: std::borrow::Borrow<S>
     {
-        let backend = FileBackend::open(path).context(error::RustbreakErrorKind::Backend)?;
+        let backend = PathBackend::open(path.to_owned())
+            .context(error::RustbreakErrorKind::Backend)?;
 
         Ok(Database {
             data: RwLock::new(data),
