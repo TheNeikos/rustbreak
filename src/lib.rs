@@ -212,9 +212,9 @@ pub mod backend;
 pub mod deser;
 
 /// The `DeSerializer` trait used by serialization structs
-pub use deser::DeSerializer;
+pub use crate::deser::DeSerializer;
 /// The general error used by the Rustbreak Module
-pub use error::RustbreakError;
+pub use crate::error::RustbreakError;
 
 use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::fmt::Debug;
@@ -223,9 +223,9 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use failure::ResultExt;
 
-use backend::{Backend, MemoryBackend, FileBackend, PathBackend};
+use crate::backend::{Backend, MemoryBackend, FileBackend, PathBackend};
 #[cfg(feature = "mmap")]
-use backend::MmapStorage;
+use crate::backend::MmapStorage;
 
 /// The Central Database to RustBreak
 ///

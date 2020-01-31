@@ -6,8 +6,8 @@
 //! file system (with a path) and featuring atomic saves.
 
 use super::Backend;
-use ::error;
-use ::error::RustbreakErrorKind as ErrorKind;
+use crate::error;
+use crate::error::RustbreakErrorKind as ErrorKind;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use failure::ResultExt;

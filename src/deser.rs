@@ -88,8 +88,8 @@ mod ron {
     use ron::ser::PrettyConfig;
     use ron::de::from_reader as from_ron_string;
 
-    use error;
-    use deser::DeSerializer;
+    use crate::error;
+    use crate::deser::DeSerializer;
 
     /// The Struct that allows you to use `ron` the Rusty Object Notation
     #[derive(Debug, Default, Clone)]
@@ -116,8 +116,8 @@ mod yaml {
     use serde::de::DeserializeOwned;
     use failure::ResultExt;
 
-    use error;
-    use deser::DeSerializer;
+    use crate::error;
+    use crate::deser::DeSerializer;
 
     /// The struct that allows you to use yaml
     #[derive(Debug, Default, Clone)]
@@ -145,8 +145,8 @@ mod bincode {
     use serde::de::DeserializeOwned;
     use failure::ResultExt;
 
-    use error;
-    use deser::DeSerializer;
+    use crate::error;
+    use crate::deser::DeSerializer;
 
     /// The struct that allows you to use bincode
     #[derive(Debug, Default, Clone)]

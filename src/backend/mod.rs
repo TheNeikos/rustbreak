@@ -11,7 +11,7 @@
 
 use failure::ResultExt;
 
-use error;
+use crate::error;
 
 /// The Backend Trait
 ///
