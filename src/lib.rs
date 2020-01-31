@@ -185,26 +185,6 @@
 //! [failure]: https://boats.gitlab.io/failure/intro.html
 //! [features]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features
 
-
-extern crate serde;
-#[macro_use] extern crate failure;
-
-#[cfg(feature = "ron_enc")]
-extern crate ron;
-
-#[cfg(feature = "yaml_enc")]
-extern crate serde_yaml;
-
-#[cfg(feature = "bin_enc")]
-extern crate bincode;
-#[cfg(feature = "bin_enc")]
-extern crate base64;
-
-#[cfg(feature = "mmap")]
-extern crate memmap;
-
-extern crate tempfile;
-
 /// The rustbreak errors that can be returned
 pub mod error;
 pub mod backend;
@@ -574,7 +554,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Database {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
-            deser: deser,
+            deser,
         }
     }
 
@@ -759,7 +739,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
         Database {
             backend: self.backend,
             data: self.data,
-            deser: deser,
+            deser,
         }
     }
 }
@@ -799,7 +779,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(Database {
             data: RwLock::new(convert(data)),
             backend: Mutex::new(backend),
-            deser: deser,
+            deser,
         })
     }
 }

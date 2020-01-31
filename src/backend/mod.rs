@@ -28,10 +28,10 @@ pub trait Backend {
 #[cfg(feature = "mmap")]
 mod mmap;
 #[cfg(feature = "mmap")]
-pub use self::mmap::MmapStorage;
+pub use mmap::MmapStorage;
 
 mod path;
-pub use self::path::PathBackend;
+pub use path::PathBackend;
 
 /// A backend using a file
 #[derive(Debug)]

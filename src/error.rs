@@ -29,8 +29,6 @@ pub enum RustbreakErrorKind {
     __Nonexhaustive,
 }
 
-
-
 /// The main error type that gets returned for errors that happen while interacting with a
 /// `Database`.
 #[derive(Debug)]
@@ -49,7 +47,7 @@ impl Fail for RustbreakError {
 }
 
 impl Display for RustbreakError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.inner, f)
     }
 }
@@ -69,7 +67,7 @@ impl From<RustbreakErrorKind> for RustbreakError {
 
 impl From<Context<RustbreakErrorKind>> for RustbreakError {
     fn from(inner: Context<RustbreakErrorKind>) -> RustbreakError {
-        RustbreakError { inner: inner }
+        RustbreakError { inner }
     }
 }
 

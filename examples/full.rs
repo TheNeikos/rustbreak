@@ -1,6 +1,6 @@
-extern crate rustbreak;
+
 #[macro_use] extern crate serde_derive;
-extern crate failure;
+use failure;
 
 use rustbreak::FileDatabase;
 use rustbreak::deser::Ron;
