@@ -1,5 +1,6 @@
 [package]
 authors = ["Marcel Müller <neikos@neikos.email>"]
+categories = ["database-implementations"]
 description = "A modular and configurable database"
 documentation = "https://docs.rs/rustbreak"
 edition = "2018"

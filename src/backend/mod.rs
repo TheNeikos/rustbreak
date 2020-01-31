@@ -82,13 +82,13 @@ impl FileBackend {
 /// An in memory backend
 ///
 /// It is backed by a `Vec<u8>`
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryBackend(Vec<u8>);
 
 impl MemoryBackend {
     /// Construct a new Memory Database
     pub fn new() -> MemoryBackend {
-        MemoryBackend(vec![])
+        MemoryBackend::default()
     }
 }
 

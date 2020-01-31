@@ -49,6 +49,7 @@ impl Backend for PathBackend {
     fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
         use ::std::io::Write;
 
+        #[allow(clippy::or_fun_call)] // `Path::new` is a zero cost conversion
         let mut tempf = NamedTempFile::new_in(self.path.parent().unwrap_or(Path::new(".")))
             .context(ErrorKind::Backend)?;
         tempf.write_all(data).context(ErrorKind::Backend)?;

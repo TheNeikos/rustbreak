@@ -668,6 +668,7 @@ impl<Data, DeSer> Database<Data, PathBackend, DeSer>
         where S: ToOwned<Owned=std::path::PathBuf>,
             std::path::PathBuf: std::borrow::Borrow<S>
     {
+        #[allow(clippy::redundant_clone)] // false positive
         let backend = PathBackend::open(path.to_owned())
             .context(error::RustbreakErrorKind::Backend)?;
 
