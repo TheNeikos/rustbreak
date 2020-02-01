@@ -11,7 +11,7 @@
 
 use failure::ResultExt;
 
-use error;
+use crate::error;
 
 /// The Backend Trait
 ///
@@ -28,10 +28,10 @@ pub trait Backend {
 #[cfg(feature = "mmap")]
 mod mmap;
 #[cfg(feature = "mmap")]
-pub use self::mmap::MmapStorage;
+pub use mmap::MmapStorage;
 
 mod path;
-pub use self::path::PathBackend;
+pub use path::PathBackend;
 
 /// A backend using a file
 #[derive(Debug)]
@@ -82,13 +82,13 @@ impl FileBackend {
 /// An in memory backend
 ///
 /// It is backed by a `Vec<u8>`
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryBackend(Vec<u8>);
 
 impl MemoryBackend {
     /// Construct a new Memory Database
     pub fn new() -> MemoryBackend {
-        MemoryBackend(vec![])
+        MemoryBackend::default()
     }
 }
 

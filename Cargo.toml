@@ -1,7 +1,9 @@
 [package]
 authors = ["Marcel Müller <neikos@neikos.email>"]
+categories = ["database-implementations"]
 description = "A modular and configurable database"
 documentation = "https://docs.rs/rustbreak"
+edition = "2018"
 homepage = "https://github.com/TheNeikos/rustbreak"
 keywords = ["database", "simple", "fast", "rustbreak"]
 license = "MPL-2.0"

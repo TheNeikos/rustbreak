@@ -185,26 +185,6 @@
 //! [failure]: https://boats.gitlab.io/failure/intro.html
 //! [features]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features
 
-
-extern crate serde;
-#[macro_use] extern crate failure;
-
-#[cfg(feature = "ron_enc")]
-extern crate ron;
-
-#[cfg(feature = "yaml_enc")]
-extern crate serde_yaml;
-
-#[cfg(feature = "bin_enc")]
-extern crate bincode;
-#[cfg(feature = "bin_enc")]
-extern crate base64;
-
-#[cfg(feature = "mmap")]
-extern crate memmap;
-
-extern crate tempfile;
-
 /// The rustbreak errors that can be returned
 pub mod error;
 pub mod backend;
@@ -212,9 +192,9 @@ pub mod backend;
 pub mod deser;
 
 /// The `DeSerializer` trait used by serialization structs
-pub use deser::DeSerializer;
+pub use crate::deser::DeSerializer;
 /// The general error used by the Rustbreak Module
-pub use error::RustbreakError;
+pub use crate::error::RustbreakError;
 
 use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::fmt::Debug;
@@ -223,9 +203,9 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use failure::ResultExt;
 
-use backend::{Backend, MemoryBackend, FileBackend, PathBackend};
+use crate::backend::{Backend, MemoryBackend, FileBackend, PathBackend};
 #[cfg(feature = "mmap")]
-use backend::MmapStorage;
+use crate::backend::MmapStorage;
 
 /// The Central Database to RustBreak
 ///
@@ -574,7 +554,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Database {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
-            deser: deser,
+            deser,
         }
     }
 
@@ -688,6 +668,7 @@ impl<Data, DeSer> Database<Data, PathBackend, DeSer>
         where S: ToOwned<Owned=std::path::PathBuf>,
             std::path::PathBuf: std::borrow::Borrow<S>
     {
+        #[allow(clippy::redundant_clone)] // false positive
         let backend = PathBackend::open(path.to_owned())
             .context(error::RustbreakErrorKind::Backend)?;
 
@@ -759,7 +740,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
         Database {
             backend: self.backend,
             data: self.data,
-            deser: deser,
+            deser,
         }
     }
 }
@@ -799,7 +780,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(Database {
             data: RwLock::new(convert(data)),
             backend: Mutex::new(backend),
-            deser: deser,
+            deser,
         })
     }
 }
