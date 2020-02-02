@@ -22,11 +22,11 @@ tempfile = "3"
 
 [dependencies.ron]
 optional = true
-version = "0.2.0"
+version = "0.5"
 
 [dependencies.base64]
 optional = true
-version = "0.9.0"
+version = "0.11"
 
 [dependencies.bincode]
 optional = true
@@ -34,11 +34,11 @@ version = "1"
 
 [dependencies.serde_yaml]
 optional = true
-version = "0.7"
+version = "0.8.5"
 
 [dependencies.memmap]
 optional = true
-version = "0.6"
+version = "0.7"
 
 [dev-dependencies]
 lazy_static = "1"
