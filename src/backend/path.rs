@@ -65,7 +65,7 @@ mod tests {
     use super::{Backend, PathBackend};
 
     #[test]
-    fn test_path_backend() {
+    fn test_path_backend_existing() {
         let file = NamedTempFile::new()
             .expect("could not create temporary file");
         let mut backend = PathBackend::open(file.path().to_owned())
@@ -74,5 +74,20 @@ mod tests {
 
         backend.put_data(&data).expect("could not put data");
         assert_eq!(backend.get_data().expect("could not get data"), data);
+    }
+
+    #[test]
+    fn test_path_backend_new() {
+        let dir = tempfile::tempdir()
+            .expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_path_db.db");
+        let mut backend = PathBackend::open(file_path)
+            .expect("could not create backend");
+        let data = [4, 5, 1, 6, 8, 1];
+
+        backend.put_data(&data).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data);
+        dir.close().expect("Error while deleting temp directory!");
     }
 }

@@ -140,44 +140,61 @@ mod tests {
         let mut backend = MemoryBackend::new();
         let data = [4, 5, 1, 6, 8, 1];
 
-        backend.put_data(&data).unwrap();
-        assert_eq!(backend.get_data().unwrap(), data);
+        backend.put_data(&data).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data);
     }
 
     #[test]
     fn test_file_backend_from_file() {
-        let file = tempfile::tempfile().unwrap();
+        let file = tempfile::tempfile()
+            .expect("could not create temporary file");
         let mut backend = FileBackend::from_file(file);
         let data = [4, 5, 1, 6, 8, 1];
         let data2 = [3, 99, 127, 6];
 
-        backend.put_data(&data).unwrap();
-        assert_eq!(backend.get_data().unwrap(), data);
+        backend.put_data(&data).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data);
 
-        backend.put_data(&data2).unwrap();
-        assert_eq!(backend.get_data().unwrap(), data2);
+        backend.put_data(&data2).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data2);
     }
 
     #[test]
-    fn test_file_backend_open() {
+    fn test_file_backend_open_existing() {
         let file = tempfile::NamedTempFile::new()
             .expect("could not create temporary file");
         let mut backend = FileBackend::open(file.path())
             .expect("could not create backend");
         let data = [4, 5, 1, 6, 8, 1];
 
-        backend.put_data(&data).unwrap();
-        assert_eq!(backend.get_data().unwrap(), data);
+        backend.put_data(&data).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data);
+    }
+
+    #[test]
+    fn test_file_backend_open_new() {
+        let dir = tempfile::tempdir()
+            .expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_file_db.db");
+        let mut backend = FileBackend::open(file_path)
+            .expect("could not create backend");
+        let data = [4, 5, 1, 6, 8, 1];
+
+        backend.put_data(&data).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data);
+        dir.close().expect("Error while deleting temp directory!");
     }
 
     #[test]
     fn test_file_backend_into_inner() {
-        let file = tempfile::tempfile().unwrap();
+        let file = tempfile::tempfile()
+            .expect("could not create temporary file");
         let mut backend = FileBackend::from_file(file);
         let data = [4, 5, 1, 6, 8, 1];
 
-        backend.put_data(&data).unwrap();
-        assert_eq!(backend.get_data().unwrap(), data);
+        backend.put_data(&data).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data);
 
         let mut file = backend.into_inner();
         file.seek(SeekFrom::Start(0)).unwrap();
