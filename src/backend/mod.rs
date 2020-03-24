@@ -59,11 +59,11 @@ pub use path::PathBackend;
 
 /// A backend using a file
 #[derive(Debug)]
-pub struct FileBackend(::std::fs::File);
+pub struct FileBackend(std::fs::File);
 
 impl Backend for FileBackend {
     fn get_data(&mut self) -> error::Result<Vec<u8>> {
-        use ::std::io::{Seek, SeekFrom, Read};
+        use std::io::{Seek, SeekFrom, Read};
 
         let mut buffer = vec![];
         self.0.seek(SeekFrom::Start(0)).context(error::RustbreakErrorKind::Backend)?;
@@ -72,7 +72,7 @@ impl Backend for FileBackend {
     }
 
     fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
-        use ::std::io::{Seek, SeekFrom, Write};
+        use std::io::{Seek, SeekFrom, Write};
 
         self.0.seek(SeekFrom::Start(0)).context(error::RustbreakErrorKind::Backend)?;
         self.0.set_len(0).context(error::RustbreakErrorKind::Backend)?;
@@ -84,8 +84,8 @@ impl Backend for FileBackend {
 
 impl FileBackend {
     /// Opens a new FileBackend for a given path, will create it if the file doesn't exist.
-    pub fn open<P: AsRef<::std::path::Path>>(path: P) -> error::Result<FileBackend> {
-        use ::std::fs::OpenOptions;
+    pub fn open<P: AsRef<std::path::Path>>(path: P) -> error::Result<FileBackend> {
+        use std::fs::OpenOptions;
 
         Ok(FileBackend(
             OpenOptions::new().read(true).write(true).create(true).open(path).context(error::RustbreakErrorKind::Backend)?,
@@ -93,12 +93,12 @@ impl FileBackend {
     }
 
     /// Use an already open File as the backend
-    pub fn from_file(file: ::std::fs::File) -> FileBackend {
+    pub fn from_file(file: std::fs::File) -> FileBackend {
         FileBackend(file)
     }
 
     /// Return the inner File
-    pub fn into_inner(self) -> ::std::fs::File {
+    pub fn into_inner(self) -> std::fs::File {
         self.0
     }
 }
@@ -133,6 +133,7 @@ impl Backend for MemoryBackend {
 mod tests {
     use tempfile;
     use super::{Backend, MemoryBackend, FileBackend};
+    use std::io::{Seek, SeekFrom, Read};
 
     #[test]
     fn test_memory_backend() {
@@ -144,13 +145,45 @@ mod tests {
     }
 
     #[test]
-    fn test_file_backend() {
+    fn test_file_backend_from_file() {
+        let file = tempfile::tempfile().unwrap();
+        let mut backend = FileBackend::from_file(file);
+        let data = [4, 5, 1, 6, 8, 1];
+        let data2 = [3, 99, 127, 6];
+
+        backend.put_data(&data).unwrap();
+        assert_eq!(backend.get_data().unwrap(), data);
+
+        backend.put_data(&data2).unwrap();
+        assert_eq!(backend.get_data().unwrap(), data2);
+    }
+
+    #[test]
+    fn test_file_backend_open() {
+        let file = tempfile::NamedTempFile::new()
+            .expect("could not create temporary file");
+        let mut backend = FileBackend::open(file.path())
+            .expect("could not create backend");
+        let data = [4, 5, 1, 6, 8, 1];
+
+        backend.put_data(&data).unwrap();
+        assert_eq!(backend.get_data().unwrap(), data);
+    }
+
+    #[test]
+    fn test_file_backend_into_inner() {
         let file = tempfile::tempfile().unwrap();
         let mut backend = FileBackend::from_file(file);
         let data = [4, 5, 1, 6, 8, 1];
 
         backend.put_data(&data).unwrap();
         assert_eq!(backend.get_data().unwrap(), data);
+
+        let mut file = backend.into_inner();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut contents = Vec::new();
+        assert_eq!(file.read_to_end(&mut contents).unwrap(), 6);
+        assert_eq!(&contents[..], &data[..]);
     }
 
     #[test]
