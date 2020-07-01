@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use std::io::Read;
 
-use failure;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
