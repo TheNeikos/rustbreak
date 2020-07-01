@@ -231,9 +231,9 @@ pub struct Database<Data, Back, DeSer>
 
 impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     where
-        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
-        Back: Backend + Debug,
-        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+        Data: Serialize + DeserializeOwned + Clone + Send,
+        Back: Backend,
+        DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
     /// Write lock the database and get write access to the `Data` container
     ///
@@ -375,7 +375,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(())
     }
 
-    /// Read lock the database and get write access to the `Data` container
+    /// Read lock the database and get read access to the `Data` container
     ///
     /// This gives you a read-only lock on the database. You can have as many readers in parallel
     /// as you wish.
@@ -541,15 +541,15 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     pub fn put_data(&self, new_data: Data, save: bool) -> error::Result<()> {
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
         let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        *data = new_data;
         if save {
             // TODO: Spin this into its own method
-            let ser = self.deser.serialize(&*data)
+            let ser = self.deser.serialize(&data)
                         .context(error::RustbreakErrorKind::Serialization)?;
 
             backend.put_data(&ser).context(error::RustbreakErrorKind::Backend)?;
             drop(backend);
         }
-        *data = new_data;
         Ok(())
     }
 
@@ -628,8 +628,8 @@ pub type FileDatabase<D, DS> = Database<D, FileBackend, DS>;
 
 impl<Data, DeSer> Database<Data, FileBackend, DeSer>
     where
-        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
-        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+        Data: Serialize + DeserializeOwned + Clone + Send,
+        DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
     /// Create new FileDatabase from Path
     pub fn from_path<S>(path: S, data: Data)
@@ -663,8 +663,8 @@ pub type PathDatabase<D, DS> = Database<D, PathBackend, DS>;
 
 impl<Data, DeSer> Database<Data, PathBackend, DeSer>
     where
-        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
-        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+        Data: Serialize + DeserializeOwned + Clone + Send,
+        DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
     /// Create new [`PathDatabase`] from a [`Path`](std::path::Path).
     pub fn from_path<S>(path: S, data: Data)
@@ -689,8 +689,8 @@ pub type MemoryDatabase<D, DS> = Database<D, MemoryBackend, DS>;
 
 impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
     where
-        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
-        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+        Data: Serialize + DeserializeOwned + Clone + Send,
+        DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
     /// Create new FileDatabase from Path
     pub fn memory(data: Data) -> error::Result<MemoryDatabase<Data, DeSer>> {
@@ -711,8 +711,8 @@ pub type MmapDatabase<D, DS> = Database<D, MmapStorage, DS>;
 #[cfg(feature = "mmap")]
 impl<Data, DeSer> Database<Data, MmapStorage, DeSer>
     where
-        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
-        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+        Data: Serialize + DeserializeOwned + Clone + Send,
+        DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
     /// Create new MmapDatabase.
     pub fn mmap(data: Data) -> error::Result<MmapDatabase<Data, DeSer>> {
@@ -766,9 +766,9 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
 
 impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     where
-        Data: Serialize + DeserializeOwned + Debug + Clone + Send,
-        Back: Backend + Debug,
-        DeSer: DeSerializer<Data> + Debug + Send + Sync + Clone
+        Data: Serialize + DeserializeOwned + Clone + Send,
+        Back: Backend,
+        DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
     /// Converts from one data type to another
     ///
@@ -776,9 +776,9 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     pub fn convert_data<C, OutputData>(self, convert: C)
         -> error::Result<Database<OutputData, Back, DeSer>>
         where
-            OutputData: Serialize + DeserializeOwned + Debug + Clone + Send,
+            OutputData: Serialize + DeserializeOwned + Clone + Send,
             C: FnOnce(Data) -> OutputData,
-            DeSer: DeSerializer<OutputData> + Debug + Send + Sync,
+            DeSer: DeSerializer<OutputData> + Send + Sync,
     {
         let (data, backend, deser) = self.into_inner()?;
         Ok(Database {
@@ -786,5 +786,18 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
             backend: Mutex::new(backend),
             deser,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Database, Backend, MemoryBackend, MemoryDatabase, deser::Ron};
+
+    #[test]
+    fn allow_databases_with_boxed_backend() {
+        let db = MemoryDatabase::<Vec<u64>, Ron>::memory(vec![]).expect("To be created");
+        let db: Database<_, Box<dyn Backend>, _>= db.with_backend(Box::new(MemoryBackend::new()));
+        db.put_data(vec![1, 2, 3], true).expect("Can save data in memory");
+        assert_eq!(&[1, 2, 3], &db.get_data(true).expect("Can get data from memory")[..]);
     }
 }
