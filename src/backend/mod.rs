@@ -25,6 +25,30 @@ pub trait Backend {
     fn put_data(&mut self, data: &[u8]) -> error::Result<()>;
 }
 
+impl Backend for Box<dyn Backend> {
+    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+        use std::ops::DerefMut;
+        self.deref_mut().get_data()
+    }
+
+    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+        use std::ops::DerefMut;
+        self.deref_mut().put_data(data)
+    }
+}
+
+impl<T: Backend> Backend for Box<T> {
+    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+        use std::ops::DerefMut;
+        self.deref_mut().get_data()
+    }
+
+    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+        use std::ops::DerefMut;
+        self.deref_mut().put_data(data)
+    }
+}
+
 #[cfg(feature = "mmap")]
 mod mmap;
 #[cfg(feature = "mmap")]
@@ -94,10 +118,12 @@ impl MemoryBackend {
 
 impl Backend for MemoryBackend {
     fn get_data(&mut self) -> error::Result<Vec<u8>> {
+        println!("Returning data: {:?}", &self.0);
         Ok(self.0.clone())
     }
 
     fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+        println!("Writing data: {:?}", data);
         self.0 = data.to_owned();
         Ok(())
     }
@@ -121,6 +147,15 @@ mod tests {
     fn test_file_backend() {
         let file = tempfile::tempfile().unwrap();
         let mut backend = FileBackend::from_file(file);
+        let data = [4, 5, 1, 6, 8, 1];
+
+        backend.put_data(&data).unwrap();
+        assert_eq!(backend.get_data().unwrap(), data);
+    }
+
+    #[test]
+    fn allow_boxed_backends() {
+        let mut backend = Box::new(MemoryBackend::new());
         let data = [4, 5, 1, 6, 8, 1];
 
         backend.put_data(&data).unwrap();
