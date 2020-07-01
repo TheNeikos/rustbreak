@@ -196,8 +196,9 @@ pub use crate::deser::DeSerializer;
 /// The general error used by the Rustbreak Module
 pub use crate::error::RustbreakError;
 
-use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::fmt::Debug;
+use std::ops::Deref;
+use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -506,16 +507,23 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(())
     }
 
-    /// Flush the data structure to the backend
-    pub fn save(&self) -> error::Result<()> {
+    /// Like [`Self::save`] but with explicit read (or write) lock to data.
+    fn save_data_locked<L: Deref<Target=Data>>(&self, lock: L) -> error::Result<()>
+        //where L::Target = Data
+    {
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        let data = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
 
-        let ser = self.deser.serialize(&*data)
+        let ser = self.deser.serialize(lock.deref())
                     .context(error::RustbreakErrorKind::Serialization)?;
 
         backend.put_data(&ser).context(error::RustbreakErrorKind::Backend)?;
         Ok(())
+    }
+
+    /// Flush the data structure to the backend
+    pub fn save(&self) -> error::Result<()> {
+        let data = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        self.save_data_locked(data)
     }
 
     /// Get a clone of the data as it is in memory right now
@@ -539,18 +547,13 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///
     /// To save the data afterwards, call with `save` true.
     pub fn put_data(&self, new_data: Data, save: bool) -> error::Result<()> {
-        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
         let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
         *data = new_data;
         if save {
-            // TODO: Spin this into its own method
-            let ser = self.deser.serialize(&data)
-                        .context(error::RustbreakErrorKind::Serialization)?;
-
-            backend.put_data(&ser).context(error::RustbreakErrorKind::Backend)?;
-            drop(backend);
+            self.save_data_locked(data)
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
     /// Create a database from its constituents
@@ -938,5 +941,14 @@ mod tests {
         let db: Database<_, Box<dyn Backend>, _>= db.with_backend(Box::new(MemoryBackend::new()));
         db.put_data(vec![1, 2, 3], true).expect("Can save data in memory");
         assert_eq!(&[1, 2, 3], &db.get_data(true).expect("Can get data from memory")[..]);
+    }
+
+    /// Since `save` only needs read-access to the data we should be able to save while holding a readlock.
+    #[test]
+    fn save_holding_readlock() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let readlock = db.borrow_data().expect("Rustbreak readlock error");
+        db.save().expect("Rustbreak save error");
+        assert_eq!(test_data(), *readlock);
     }
 }
