@@ -509,7 +509,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// Flush the data structure to the backend
     pub fn save(&self) -> error::Result<()> {
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        let data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let data = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
 
         let ser = self.deser.serialize(&*data)
                     .context(error::RustbreakErrorKind::Serialization)?;
@@ -523,12 +523,16 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// To make sure you have the latest data, call this method with `load` true
     pub fn get_data(&self, load: bool) -> error::Result<Data> {
         let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
         if load {
+            let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
             *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
             drop(backend);
+            return Ok(data.clone());
+        } else {
+            let data = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
+            drop(backend);
+            return Ok(data.clone());
         }
-        Ok(data.clone())
     }
 
     /// Puts the data as is into memory
