@@ -791,11 +791,150 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
 
 #[cfg(test)]
 mod tests {
-    use super::{Database, Backend, MemoryBackend, MemoryDatabase, deser::Ron};
+    use super::*;
+    use std::collections::HashMap;
+
+    type TestData = HashMap<usize, String>;
+    type TestDb = MemoryDatabase<TestData, crate::deser::Ron>;
+
+    fn test_data() -> TestData {
+        let mut data = HashMap::new();
+        data.insert(1, "Hello World".to_string());
+        data.insert(100, "Rustbreak".to_string());
+        data
+    }
+
+    #[test]
+    fn create_db_and_read() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        assert_eq!("Hello World", db.read(|d| d.get(&1).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", db.read(|d| d.get(&100).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+    }
+
+    #[test]
+    fn write_twice() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        db.write(|d| d.insert(3, "Write to db".to_string())).expect("Rustbreak write error");
+        db.write(|d| d.insert(3, "Second write".to_string())).expect("Rustbreak write error");
+        assert_eq!("Hello World", db.read(|d| d.get(&1).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", db.read(|d| d.get(&100).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Second write", db.read(|d| d.get(&3).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+    }
+
+    #[test]
+    fn save_load() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        db.save().expect("Rustbreak save error");
+        db.write(|d| d.clear()).expect("Rustbreak write error");
+        db.load().expect("Rustbreak load error");
+        assert_eq!("Hello World", db.read(|d| d.get(&1).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", db.read(|d| d.get(&100).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+    }
+
+    #[test]
+    fn writesafe_twice() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        db.write_safe(|d| {d.insert(3, "Write to db".to_string());}).expect("Rustbreak write error");
+        db.write_safe(|d| {d.insert(3, "Second write".to_string());}).expect("Rustbreak write error");
+        assert_eq!("Hello World", db.read(|d| d.get(&1).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", db.read(|d| d.get(&100).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Second write", db.read(|d| d.get(&3).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+    }
+
+    #[test]
+    fn writesafe_panic() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let err = db.write_safe(|d| {d.clear(); panic!("Panic should be catched")}).expect_err("Did not error on panic in safe write!");
+        assert_eq!(crate::error::RustbreakErrorKind::WritePanic, err.kind());
+
+        assert_eq!("Hello World", db.read(|d| d.get(&1).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", db.read(|d| d.get(&100).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+    }
+
+    #[test]
+    fn borrow_data_twice() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let readlock1 = db.borrow_data().expect("Rustbreak readlock error");
+        let readlock2 = db.borrow_data().expect("Rustbreak readlock error");
+        assert_eq!("Hello World", readlock1.get(&1).expect("Should be `Some` but was `None`"));
+        assert_eq!("Hello World", readlock2.get(&1).expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", readlock1.get(&100).expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", readlock2.get(&100).expect("Should be `Some` but was `None`"));
+        assert_eq!(*readlock1, *readlock2);
+    }
+
+    #[test]
+    fn borrow_data_mut() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let mut writelock = db.borrow_data_mut().expect("Rustbreak writelock error");
+        writelock.insert(3, "Write to db".to_string());
+        drop(writelock);
+        assert_eq!("Hello World", db.read(|d| d.get(&1).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", db.read(|d| d.get(&100).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Write to db", db.read(|d| d.get(&3).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+    }
+
+    #[test]
+    fn get_data_mem() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let data = db.get_data(false).expect("could not get data");
+        assert_eq!(test_data(), data);
+    }
+
+    #[test]
+    fn get_data_load() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        db.save().expect("Rustbreak save error");
+        db.write(|d| d.clear()).expect("Rustbreak write error");
+        let data = db.get_data(true).expect("could not get data");
+        assert_eq!(test_data(), data);
+    }
+
+    #[test]
+    fn put_data_mem() {
+        let db = TestDb::memory(TestData::default()).expect("Could not create database");
+        db.put_data(test_data(), false).expect("could not put data");
+        assert_eq!("Hello World", db.read(|d| d.get(&1).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", db.read(|d| d.get(&100).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        let data = db.get_data(false).expect("could not get data");
+        assert_eq!(test_data(), data);
+    }
+
+    #[test]
+    fn put_data_save() {
+        let db = TestDb::memory(TestData::default()).expect("Could not create database");
+        db.put_data(test_data(), true).expect("could not put data");
+        db.load().expect("Rustbreak load error");
+        assert_eq!("Hello World", db.read(|d| d.get(&1).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        assert_eq!("Rustbreak", db.read(|d| d.get(&100).cloned()).expect("Rustbreak read error").expect("Should be `Some` but was `None`"));
+        let data = db.get_data(false).expect("could not get data");
+        assert_eq!(test_data(), data);
+    }
+
+    #[test]
+    fn save_and_into_inner() {
+        let db = TestDb::memory(test_data()).expect("Could not create database");
+        db.save().expect("Rustbreak save error");
+        let (data, mut backend, _) = db.into_inner().expect("error calling `Database.into_inner`");
+        assert_eq!(test_data(), data);
+        let parsed: TestData = ron::de::from_reader(&backend.get_data().expect("could not get data from backend")[..])
+            .expect("backend contains invalid RON");
+        assert_eq!(test_data(), parsed);
+    }
+
+    #[test]
+    fn clone() {
+        let db1 = TestDb::memory(test_data()).expect("Could not create database");
+        let readlock1 = db1.borrow_data().expect("Rustbreak readlock error");
+        let db2 = db1.try_clone().expect("Rustbreak clone error");
+        let readlock2 = db2.borrow_data().expect("Rustbreak readlock error");
+        assert_eq!(test_data(), *readlock1);
+        assert_eq!(*readlock1, *readlock2);
+    }
 
     #[test]
     fn allow_databases_with_boxed_backend() {
-        let db = MemoryDatabase::<Vec<u64>, Ron>::memory(vec![]).expect("To be created");
+        let db = MemoryDatabase::<Vec<u64>, crate::deser::Ron>::memory(vec![]).expect("To be created");
         let db: Database<_, Box<dyn Backend>, _>= db.with_backend(Box::new(MemoryBackend::new()));
         db.put_data(vec![1, 2, 3], true).expect("Can save data in memory");
         assert_eq!(&[1, 2, 3], &db.get_data(true).expect("Can get data from memory")[..]);
