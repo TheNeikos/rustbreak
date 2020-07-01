@@ -613,7 +613,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # }
     /// ```
     pub fn try_clone(&self) -> error::Result<MemoryDatabase<Data, DeSer>> {
-        let lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let lock = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
 
         Ok(Database {
             data: RwLock::new(lock.clone()),
