@@ -22,11 +22,11 @@ tempfile = "3"
 
 [dependencies.ron]
 optional = true
-version = "0.5"
+version = "0.6"
 
 [dependencies.base64]
 optional = true
-version = "0.11"
+version = "0.12"
 
 [dependencies.bincode]
 optional = true
