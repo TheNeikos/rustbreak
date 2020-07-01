@@ -527,11 +527,11 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
             let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
             *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
             drop(backend);
-            return Ok(data.clone());
+            Ok(data.clone())
         } else {
             let data = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
             drop(backend);
-            return Ok(data.clone());
+            Ok(data.clone())
         }
     }
 
