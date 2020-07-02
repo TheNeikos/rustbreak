@@ -66,7 +66,7 @@ pub use self::bincode::Bincode;
 ///
 /// fn main() {}
 /// ```
-pub trait DeSerializer<T: Serialize + DeserializeOwned> : ::std::default::Default + Send + Sync + Clone {
+pub trait DeSerializer<T: Serialize + DeserializeOwned> : std::default::Default + Send + Sync + Clone {
     /// Serializes a given value to a String
     fn serialize(&self, val: &T) -> Result<Vec<u8>, failure::Error>;
     /// Deserializes a String to a value

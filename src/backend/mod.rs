@@ -84,18 +84,18 @@ impl Backend for FileBackend {
 
 impl FileBackend {
     /// Opens a new [`FileBackend`] for a given path, will create it if the file doesn't exist.
-    pub fn open<P: AsRef<std::path::Path>>(path: P) -> error::Result<FileBackend> {
+    pub fn open<P: AsRef<std::path::Path>>(path: P) -> error::Result<Self> {
         use std::fs::OpenOptions;
 
-        Ok(FileBackend(
+        Ok(Self(
             OpenOptions::new().read(true).write(true).create(true).open(path).context(error::RustbreakErrorKind::Backend)?,
         ))
     }
 
     /// Use an already open [`File`](std::fs::File) as the backend.
     #[must_use]
-    pub fn from_file(file: std::fs::File) -> FileBackend {
-        FileBackend(file)
+    pub fn from_file(file: std::fs::File) -> Self {
+        Self(file)
     }
 
     /// Return the inner File.
@@ -114,8 +114,8 @@ pub struct MemoryBackend(Vec<u8>);
 impl MemoryBackend {
     /// Construct a new Memory Database.
     #[must_use]
-    pub fn new() -> MemoryBackend {
-        MemoryBackend::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

@@ -33,7 +33,7 @@ impl PathBackend {
 
 impl Backend for PathBackend {
     fn get_data(&mut self) -> error::Result<Vec<u8>> {
-        use ::std::io::Read;
+        use std::io::Read;
 
         let mut file = OpenOptions::new().read(true)
             .open(self.path.as_path()).context(ErrorKind::Backend)?;
@@ -47,7 +47,7 @@ impl Backend for PathBackend {
     /// This won't corrupt the existing database file if the program panics
     /// during the save.
     fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
-        use ::std::io::Write;
+        use std::io::Write;
 
         #[allow(clippy::or_fun_call)] // `Path::new` is a zero cost conversion
         let mut tempf = NamedTempFile::new_in(self.path.parent().unwrap_or(Path::new(".")))

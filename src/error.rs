@@ -57,16 +57,16 @@ impl RustbreakError {
 }
 
 impl From<RustbreakErrorKind> for RustbreakError {
-    fn from(kind: RustbreakErrorKind) -> RustbreakError {
-        RustbreakError { inner: Context::new(kind) }
+    fn from(kind: RustbreakErrorKind) -> Self {
+        Self { inner: Context::new(kind) }
     }
 }
 
 impl From<Context<RustbreakErrorKind>> for RustbreakError {
-    fn from(inner: Context<RustbreakErrorKind>) -> RustbreakError {
-        RustbreakError { inner }
+    fn from(inner: Context<RustbreakErrorKind>) -> Self {
+        Self { inner }
     }
 }
 
 /// A simple type alias for errors
-pub type Result<T> = ::std::result::Result<T, RustbreakError>;
+pub type Result<T> = std::result::Result<T, RustbreakError>;

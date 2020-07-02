@@ -138,7 +138,7 @@
 //!     Ok(db) => db,
 //!     Err(e) => {
 //!         // Do something with `e` here
-//!         ::std::process::exit(1);
+//!         std::process::exit(1);
 //!     }
 //! };
 //! ```
@@ -220,7 +220,7 @@ use crate::backend::MmapStorage;
 /// # Panics
 ///
 /// If the backend or the de/serialization panics, the database is poisoned. This means that any
-/// subsequent writes/reads will fail with an `error::RustbreakErrorKind::PoisonError`.
+/// subsequent writes/reads will fail with an [`error::RustbreakErrorKind::Poison`].
 /// You can only recover from this by re-creating the Database Object.
 #[derive(Debug)]
 pub struct Database<Data, Back, DeSer>
@@ -244,11 +244,11 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # Panics
     ///
     /// If you panic in the closure, the database is poisoned. This means that any
-    /// subsequent writes/reads will fail with an `std::sync::PoisonError`.
+    /// subsequent writes/reads will fail with an [`error::RustbreakErrorKind::Poison`].
     /// You can only recover from this by re-creating the Database Object.
     ///
     /// If you do not have full control over the code being written, and cannot incur the cost of
-    /// having a single operation panicking then use `Database::write_safe`.
+    /// having a single operation panicking then use [`Database::write_safe`].
     ///
     /// # Examples
     ///
@@ -307,7 +307,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///
     /// # Panics
     ///
-    /// When the closure panics, it is caught and a `error::RustbreakErrorKind::WritePanic` will be
+    /// When the closure panics, it is caught and a [`error::RustbreakErrorKind::WritePanic`] will be
     /// returned.
     ///
     /// # Examples
@@ -369,7 +369,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     {
         let mut lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
         let mut data = lock.clone();
-        ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
+        std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
             task(&mut data);
         })).map_err(|_| error::RustbreakErrorKind::WritePanic)?;
         *lock = data;
@@ -385,12 +385,12 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///
     /// May return:
     ///
-    /// - `error::RustbreakErrorKind::Backend`
+    /// - [`error::RustbreakErrorKind::Backend`]
     ///
     /// # Panics
     ///
     /// If you panic in the closure, the database is poisoned. This means that any
-    /// subsequent writes/reads will fail with an `error::RustbreakErrorKind::Poison`.
+    /// subsequent writes/reads will fail with an [`error::RustbreakErrorKind::Poison`].
     /// You can only recover from this by re-creating the Database Object.
     pub fn read<T, R>(&self, task: T) -> error::Result<R>
         where T: FnOnce(&Data) -> R
@@ -447,11 +447,11 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # Panics
     ///
     /// If you panic while holding this reference, the database is poisoned. This means that any
-    /// subsequent writes/reads will fail with an `std::sync::PoisonError`.
+    /// subsequent writes/reads will fail with an [`error::RustbreakErrorKind::Poison`].
     /// You can only recover from this by re-creating the Database Object.
     ///
     /// If you do not have full control over the code being written, and cannot incur the cost of
-    /// having a single operation panicking then use `Database::write_safe`.
+    /// having a single operation panicking then use [`Database::write_safe`].
     ///
     /// # Examples
     ///
@@ -500,7 +500,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
 //     }
 
     /// Like [`Self::load`] but returns the write lock to data it used.
-    fn load_get_data_lock(&self) -> error::Result<RwLockWriteGuard<Data>> {
+    fn load_get_data_lock(&self) -> error::Result<RwLockWriteGuard<'_, Data>> {
         let mut backend_lock = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
 
         //let fresh_data = Self::inner_load(&mut backend_lock, &self.deser).context(error::RustbreakErrorKind::Backend)?;
@@ -564,8 +564,8 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     }
 
     /// Create a database from its constituents.
-    pub fn from_parts(data: Data, backend: Back, deser: DeSer) -> Database<Data, Back, DeSer> {
-        Database {
+    pub fn from_parts(data: Data, backend: Back, deser: DeSer) -> Self {
+        Self {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
             deser,
@@ -643,12 +643,12 @@ impl<Data, DeSer> Database<Data, FileBackend, DeSer>
 {
     /// Create new [`FileDatabase`] from the file at [`Path`](std::path::Path).
     pub fn from_path<S>(path: S, data: Data)
-        -> error::Result<FileDatabase<Data, DeSer>>
+        -> error::Result<Self>
         where S: AsRef<std::path::Path>
     {
         let backend = FileBackend::open(path).context(error::RustbreakErrorKind::Backend)?;
 
-        Ok(Database {
+        Ok(Self {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
             deser: DeSer::default(),
@@ -656,11 +656,11 @@ impl<Data, DeSer> Database<Data, FileBackend, DeSer>
     }
 
     /// Create new [`FileDatabase`] from a file.
-    pub fn from_file(file: ::std::fs::File, data: Data) -> error::Result<FileDatabase<Data, DeSer>>
+    pub fn from_file(file: std::fs::File, data: Data) -> error::Result<Self>
     {
         let backend = FileBackend::from_file(file);
 
-        Ok(Database {
+        Ok(Self {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
             deser: DeSer::default(),
@@ -678,7 +678,7 @@ impl<Data, DeSer> Database<Data, PathBackend, DeSer>
 {
     /// Create new [`PathDatabase`] from a [`Path`](std::path::Path).
     pub fn from_path<S>(path: S, data: Data)
-        -> error::Result<PathDatabase<Data, DeSer>>
+        -> error::Result<Self>
         where S: ToOwned<Owned=std::path::PathBuf>,
             std::path::PathBuf: std::borrow::Borrow<S>
     {
@@ -686,7 +686,7 @@ impl<Data, DeSer> Database<Data, PathBackend, DeSer>
         let backend = PathBackend::open(path.to_owned())
             .context(error::RustbreakErrorKind::Backend)?;
 
-        Ok(Database {
+        Ok(Self {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
             deser: DeSer::default(),
@@ -703,10 +703,10 @@ impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
         DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
     /// Create new in-memory database.
-    pub fn memory(data: Data) -> error::Result<MemoryDatabase<Data, DeSer>> {
+    pub fn memory(data: Data) -> error::Result<Self> {
         let backend = MemoryBackend::new();
 
-        Ok(Database {
+        Ok(Self {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
             deser: DeSer::default(),
@@ -725,10 +725,10 @@ impl<Data, DeSer> Database<Data, MmapStorage, DeSer>
         DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
     /// Create new [`MmapDatabase`].
-    pub fn mmap(data: Data) -> error::Result<MmapDatabase<Data, DeSer>> {
+    pub fn mmap(data: Data) -> error::Result<Self> {
         let backend = MmapStorage::new()?;
 
-        Ok(Database {
+        Ok(Self {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
             deser: DeSer::default(),
@@ -736,10 +736,10 @@ impl<Data, DeSer> Database<Data, MmapStorage, DeSer>
     }
 
     /// Create new [`MmapDatabase`] with specified initial size.
-    pub fn mmap_with_size(data: Data, size: usize) -> error::Result<MmapDatabase<Data, DeSer>> {
+    pub fn mmap_with_size(data: Data, size: usize) -> error::Result<Self> {
         let backend = MmapStorage::with_size(size)?;
 
-        Ok(Database {
+        Ok(Self {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
             deser: DeSer::default(),
