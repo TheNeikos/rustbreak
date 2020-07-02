@@ -490,32 +490,44 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         self.data.write().map_err(|_| error::RustbreakErrorKind::Poison.into())
     }
 
-    fn inner_load(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
-        let new_data = deser.deserialize(
-            &backend.get_data().context(error::RustbreakErrorKind::Backend)?[..]
-        ).context(error::RustbreakErrorKind::Deserialization)?;
+//     // Now replaced by [`load_get_data_lock`].
+//     fn inner_load(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
+//         let new_data = deser.deserialize(
+//             &backend.get_data().context(error::RustbreakErrorKind::Backend)?[..]
+//         ).context(error::RustbreakErrorKind::Deserialization)?;
+//
+//         Ok(new_data)
+//     }
 
-        Ok(new_data)
+    /// Like [`Self::load`] but returns the write lock to data it used.
+    fn load_get_data_lock(&self) -> error::Result<RwLockWriteGuard<Data>> {
+        let mut backend_lock = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
+
+        //let fresh_data = Self::inner_load(&mut backend_lock, &self.deser).context(error::RustbreakErrorKind::Backend)?;
+        let fresh_data = self.deser.deserialize(
+            &backend_lock.get_data().context(error::RustbreakErrorKind::Backend)?[..]
+        ).context(error::RustbreakErrorKind::Deserialization)?;
+        drop(backend_lock);
+
+        let mut data_write_lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        *data_write_lock = fresh_data;
+        Ok(data_write_lock)
     }
 
     /// Load the Data from the backend
     pub fn load(&self) -> error::Result<()> {
-        let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
-
-        *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
-        Ok(())
+        self.load_get_data_lock().map(|_| ())
     }
 
     /// Like [`Self::save`] but with explicit read (or write) lock to data.
     fn save_data_locked<L: Deref<Target=Data>>(&self, lock: L) -> error::Result<()>
         //where L::Target = Data
     {
-        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
-
         let ser = self.deser.serialize(lock.deref())
                     .context(error::RustbreakErrorKind::Serialization)?;
+        drop(lock);
 
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
         backend.put_data(&ser).context(error::RustbreakErrorKind::Backend)?;
         Ok(())
     }
@@ -530,17 +542,12 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///
     /// To make sure you have the latest data, call this method with `load` true
     pub fn get_data(&self, load: bool) -> error::Result<Data> {
-        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        if load {
-            let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
-            *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
-            drop(backend);
-            Ok(data.clone())
+        let data = if load {
+            self.load_get_data_lock()?
         } else {
-            let data = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
-            drop(backend);
-            Ok(data.clone())
-        }
+            self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?
+        };
+        Ok(data.clone())
     }
 
     /// Puts the data as is into memory
