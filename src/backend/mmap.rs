@@ -1,5 +1,3 @@
-use memmap;
-use failure;
 use failure::ResultExt;
 
 use super::Backend;
@@ -12,9 +10,9 @@ use std::io;
 #[derive(Debug)]
 struct Mmap {
     inner: memmap::MmapMut,
-    //End of data
+    /// End of data
     pub end: usize,
-    //Mmap total len
+    /// Mmap total len
     pub len: usize
 }
 
@@ -38,7 +36,7 @@ impl Mmap {
         &mut self.inner[..self.end]
     }
 
-    //Copies data to mmap and modifies data's end cursor.
+    /// Copies data to mmap and modifies data's end cursor.
     fn write(&mut self, data: &[u8]) -> Result<(), failure::Error> {
         if data.len() > self.len {
             return Err(failure::err_msg("Unexpected write beyond mmap's backend capacity. This is a rustbreak's bug"));
@@ -52,11 +50,12 @@ impl Mmap {
         self.inner.flush()
     }
 
-    //Increases mmap size by max(old_size*2, new_size)
-    //Note that it doesn't copy original data
+    /// Increases mmap size by max(old_size*2, new_size).
+    ///
+    /// Note that it doesn't copy original data
     fn resize_no_copy(&mut self, new_size: usize) -> io::Result<()> {
         let len = cmp::max(self.len + self.len, new_size);
-        //Make sure we don't discard old mmap before creating new one;
+        // Make sure we don't discard old mmap before creating new one;
         let new_mmap = Self::new(len)?;
         *self = new_mmap;
         Ok(())
@@ -80,12 +79,12 @@ pub struct MmapStorage {
 }
 
 impl MmapStorage {
-    ///Creates new storage with 1024 bytes
+    /// Creates new storage with 1024 bytes.
     pub fn new() -> error::Result<Self> {
         Self::with_size(1024)
     }
 
-    ///Creates new storage with custom size.
+    /// Creates new storage with custom size.
     pub fn with_size(len: usize) -> error::Result<Self> {
         let mmap = Mmap::new(len).context(error::RustbreakErrorKind::Backend)?;
 

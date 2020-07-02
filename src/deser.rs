@@ -78,7 +78,6 @@ pub trait DeSerializer<T: Serialize + DeserializeOwned> : ::std::default::Defaul
 mod ron {
     use std::io::Read;
 
-    use failure;
     use serde::Serialize;
     use serde::de::DeserializeOwned;
     use failure::ResultExt;
@@ -109,7 +108,6 @@ mod ron {
 mod yaml {
     use std::io::Read;
 
-    use failure;
     use serde_yaml::{to_string as to_yaml_string, from_reader as from_yaml_string};
     use serde::Serialize;
     use serde::de::DeserializeOwned;
@@ -138,7 +136,6 @@ mod yaml {
 mod bincode {
     use std::io::Read;
 
-    use failure;
     use bincode::{deserialize_from, serialize};
     use serde::Serialize;
     use serde::de::DeserializeOwned;

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! The persistence backends of the Database
+//! The persistence backends of the Database.
 //!
 //! A file is a `Backend` through the `FileBackend`, so is a `Vec<u8>` with a `MemoryBackend`.
 //!
@@ -13,15 +13,15 @@ use failure::ResultExt;
 
 use crate::error;
 
-/// The Backend Trait
+/// The Backend Trait.
 ///
 /// It should always read and save in full the data that it is passed. This means that a write to
 /// the backend followed by a read __must__ return the same dataset.
 pub trait Backend {
-    /// Read the all data from the backend
+    /// Read the all data from the backend.
     fn get_data(&mut self) -> error::Result<Vec<u8>>;
 
-    /// Write the whole slice to the backend
+    /// Write the whole slice to the backend.
     fn put_data(&mut self, data: &[u8]) -> error::Result<()>;
 }
 
@@ -83,7 +83,7 @@ impl Backend for FileBackend {
 }
 
 impl FileBackend {
-    /// Opens a new FileBackend for a given path, will create it if the file doesn't exist.
+    /// Opens a new [`FileBackend`] for a given path, will create it if the file doesn't exist.
     pub fn open<P: AsRef<std::path::Path>>(path: P) -> error::Result<FileBackend> {
         use std::fs::OpenOptions;
 
@@ -92,25 +92,28 @@ impl FileBackend {
         ))
     }
 
-    /// Use an already open File as the backend
+    /// Use an already open [`File`](std::fs::File) as the backend.
+    #[must_use]
     pub fn from_file(file: std::fs::File) -> FileBackend {
         FileBackend(file)
     }
 
-    /// Return the inner File
+    /// Return the inner File.
+    #[must_use]
     pub fn into_inner(self) -> std::fs::File {
         self.0
     }
 }
 
-/// An in memory backend
+/// An in memory backend.
 ///
-/// It is backed by a `Vec<u8>`
+/// It is backed by a byte vector (`Vec<u8>`).
 #[derive(Debug, Default)]
 pub struct MemoryBackend(Vec<u8>);
 
 impl MemoryBackend {
-    /// Construct a new Memory Database
+    /// Construct a new Memory Database.
+    #[must_use]
     pub fn new() -> MemoryBackend {
         MemoryBackend::default()
     }

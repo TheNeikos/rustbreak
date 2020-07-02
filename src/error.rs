@@ -7,6 +7,7 @@ use failure::{Context, Fail, Backtrace};
 
 /// The different kinds of errors that can be returned
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Fail)]
+#[non_exhaustive]
 pub enum RustbreakErrorKind {
     /// A context error when a serialization failed
     #[fail(display = "Could not serialize the value")]
@@ -23,10 +24,6 @@ pub enum RustbreakErrorKind {
     /// If `Database::write_safe` is used and the closure panics, this error is returned
     #[fail(display = "The write operation paniced but got caught")]
     WritePanic,
-    /// This variant should never be used. It is meant to keep this enum forward compatible.
-    #[doc(hidden)]
-    #[fail(display = "You have found a secret message, please report it to the Rustbreak maintainer")]
-    __Nonexhaustive,
 }
 
 /// The main error type that gets returned for errors that happen while interacting with a

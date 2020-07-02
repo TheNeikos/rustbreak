@@ -51,7 +51,7 @@
 //! saves, so that the old database contents won't be lost when panicing during the save. It
 //! should therefore be preferred to a [`FileDatabase`].
 //!
-//! Using the `with_deser` and `with_backend` one can switch between the representations one needs.
+//! Using the [`Database::with_deser`] and [`Database::with_backend`] one can switch between the representations one needs.
 //! Even at runtime! However this is only useful in a few scenarios.
 //!
 //! If you have any questions feel free to ask at the main [repo][repo].
@@ -121,7 +121,7 @@
 //! ## Error Handling
 //!
 //! Handling errors in Rustbreak is straightforward. Every `Result` has as its fail case as
-//! `error::RustbreakError`. This means that you can now either continue bubbling up said error
+//! [`error::RustbreakError`]. This means that you can now either continue bubbling up said error
 //! case, or handle it yourself.
 //!
 //! You can simply call its `.kind()` method, giving you all the information you need to continue.
@@ -145,8 +145,8 @@
 //!
 //! ## Panics
 //!
-//! This Database implementation uses `RwLock` and `Mutex` under the hood. If either the closures
-//! given to `Database::write` or any of the Backend implementation methods panic the respective
+//! This Database implementation uses [`RwLock`] and [`Mutex`] under the hood. If either the closures
+//! given to [`Database::write`] or any of the Backend implementation methods panic the respective
 //! objects are then poisoned. This means that you *cannot panic* under any circumstances in your
 //! closures or custom backends.
 //!
@@ -208,13 +208,13 @@ use crate::backend::{Backend, MemoryBackend, FileBackend, PathBackend};
 #[cfg(feature = "mmap")]
 use crate::backend::MmapStorage;
 
-/// The Central Database to RustBreak
+/// The Central Database to Rustbreak.
 ///
 /// It has 3 Type Generics:
 ///
-/// - Data: Is the Data, you must specify this
-/// - Back: The storage backend.
-/// - DeSer: The Serializer/Deserializer or short DeSer. Check the `deser` module for other
+/// - `Data`: Is the Data, you must specify this
+/// - `Back`: The storage backend.
+/// - `DeSer`: The Serializer/Deserializer or short DeSer. Check the [`deser`] module for other
 ///     strategies.
 ///
 /// # Panics
@@ -236,7 +236,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Back: Backend,
         DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
-    /// Write lock the database and get write access to the `Data` container
+    /// Write lock the database and get write access to the `Data` container.
     ///
     /// This gives you an exclusive lock on the memory object. Trying to open the database in
     /// writing will block if it is currently being written to.
@@ -290,7 +290,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(task(&mut lock))
     }
 
-    /// Write lock the database and get write access to the `Data` container in a safe way
+    /// Write lock the database and get write access to the `Data` container in a safe way.
     ///
     /// This gives you an exclusive lock on the memory object. Trying to open the database in
     /// writing will block if it is currently being written to.
@@ -303,7 +303,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// for panic safety.
     ///
     /// You should read the documentation about this:
-    /// [UnwindSafe](https://doc.rust-lang.org/std/panic/trait.UnwindSafe.html)
+    /// [`UnwindSafe`](https://doc.rust-lang.org/std/panic/trait.UnwindSafe.html)
     ///
     /// # Panics
     ///
@@ -376,7 +376,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(())
     }
 
-    /// Read lock the database and get read access to the `Data` container
+    /// Read lock the database and get read access to the `Data` container.
     ///
     /// This gives you a read-only lock on the database. You can have as many readers in parallel
     /// as you wish.
@@ -399,7 +399,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(task(&mut lock))
     }
 
-    /// Read lock the database and get access to the underlying struct
+    /// Read lock the database and get access to the underlying struct.
     ///
     /// This gives you access to the underlying struct, allowing for simple read
     /// only operations on it.
@@ -440,7 +440,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         self.data.read().map_err(|_| error::RustbreakErrorKind::Poison.into())
     }
 
-    /// Write lock the database and get access to the underlying struct
+    /// Write lock the database and get access to the underlying struct.
     ///
     /// This gives you access to the underlying struct, allowing you to modify it.
     ///
@@ -514,7 +514,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(data_write_lock)
     }
 
-    /// Load the Data from the backend
+    /// Load the data from the backend.
     pub fn load(&self) -> error::Result<()> {
         self.load_get_data_lock().map(|_| ())
     }
@@ -532,15 +532,15 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(())
     }
 
-    /// Flush the data structure to the backend
+    /// Flush the data structure to the backend.
     pub fn save(&self) -> error::Result<()> {
         let data = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
         self.save_data_locked(data)
     }
 
-    /// Get a clone of the data as it is in memory right now
+    /// Get a clone of the data as it is in memory right now.
     ///
-    /// To make sure you have the latest data, call this method with `load` true
+    /// To make sure you have the latest data, call this method with `load` true.
     pub fn get_data(&self, load: bool) -> error::Result<Data> {
         let data = if load {
             self.load_get_data_lock()?
@@ -550,7 +550,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Ok(data.clone())
     }
 
-    /// Puts the data as is into memory
+    /// Puts the data as is into memory.
     ///
     /// To save the data afterwards, call with `save` true.
     pub fn put_data(&self, new_data: Data, save: bool) -> error::Result<()> {
@@ -563,7 +563,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         }
     }
 
-    /// Create a database from its constituents
+    /// Create a database from its constituents.
     pub fn from_parts(data: Data, backend: Back, deser: DeSer) -> Database<Data, Back, DeSer> {
         Database {
             data: RwLock::new(data),
@@ -572,7 +572,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         }
     }
 
-    /// Break a database into its individual parts
+    /// Break a database into its individual parts.
     pub fn into_inner(self) -> error::Result<(Data, Back, DeSer)> {
         Ok((self.data.into_inner().map_err(|_| error::RustbreakErrorKind::Poison)?,
             self.backend.into_inner().map_err(|_| error::RustbreakErrorKind::Poison)?,
@@ -633,7 +633,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     }
 }
 
-/// A database backed by a file
+/// A database backed by a file.
 pub type FileDatabase<D, DS> = Database<D, FileBackend, DS>;
 
 impl<Data, DeSer> Database<Data, FileBackend, DeSer>
@@ -641,7 +641,7 @@ impl<Data, DeSer> Database<Data, FileBackend, DeSer>
         Data: Serialize + DeserializeOwned + Clone + Send,
         DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
-    /// Create new FileDatabase from Path
+    /// Create new [`FileDatabase`] from the file at [`Path`](std::path::Path).
     pub fn from_path<S>(path: S, data: Data)
         -> error::Result<FileDatabase<Data, DeSer>>
         where S: AsRef<std::path::Path>
@@ -655,7 +655,7 @@ impl<Data, DeSer> Database<Data, FileBackend, DeSer>
         })
     }
 
-    /// Create new FileDatabase from a file
+    /// Create new [`FileDatabase`] from a file.
     pub fn from_file(file: ::std::fs::File, data: Data) -> error::Result<FileDatabase<Data, DeSer>>
     {
         let backend = FileBackend::from_file(file);
@@ -694,7 +694,7 @@ impl<Data, DeSer> Database<Data, PathBackend, DeSer>
     }
 }
 
-/// A database backed by a `Vec<u8>`
+/// A database backed by a byte vector (`Vec<u8>`).
 pub type MemoryDatabase<D, DS> = Database<D, MemoryBackend, DS>;
 
 impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
@@ -702,7 +702,7 @@ impl<Data, DeSer> Database<Data, MemoryBackend, DeSer>
         Data: Serialize + DeserializeOwned + Clone + Send,
         DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
-    /// Create new FileDatabase from Path
+    /// Create new in-memory database.
     pub fn memory(data: Data) -> error::Result<MemoryDatabase<Data, DeSer>> {
         let backend = MemoryBackend::new();
 
@@ -724,7 +724,7 @@ impl<Data, DeSer> Database<Data, MmapStorage, DeSer>
         Data: Serialize + DeserializeOwned + Clone + Send,
         DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
-    /// Create new MmapDatabase.
+    /// Create new [`MmapDatabase`].
     pub fn mmap(data: Data) -> error::Result<MmapDatabase<Data, DeSer>> {
         let backend = MmapStorage::new()?;
 
@@ -735,7 +735,7 @@ impl<Data, DeSer> Database<Data, MmapStorage, DeSer>
         })
     }
 
-    /// Create new MmapDatabase with specified initial size.
+    /// Create new [`MmapDatabase`] with specified initial size.
     pub fn mmap_with_size(data: Data, size: usize) -> error::Result<MmapDatabase<Data, DeSer>> {
         let backend = MmapStorage::with_size(size)?;
 
@@ -748,7 +748,7 @@ impl<Data, DeSer> Database<Data, MmapStorage, DeSer>
 }
 
 impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
-    /// Exchanges the DeSerialization strategy with the new one
+    /// Exchanges the `DeSerialization` strategy with the new one.
     pub fn with_deser<T>(self, deser: T) -> Database<Data, Back, T>
     {
         Database {
@@ -760,7 +760,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
 }
 
 impl<Data, Back, DeSer> Database<Data, Back, DeSer> {
-    /// Exchanges the Backend with the new one
+    /// Exchanges the `Backend` with the new one.
     ///
     /// The new backend does not necessarily have the latest data saved to it, so a `.save` should
     /// be called to make sure that it is saved.
@@ -780,9 +780,9 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         Back: Backend,
         DeSer: DeSerializer<Data> + Send + Sync + Clone
 {
-    /// Converts from one data type to another
+    /// Converts from one data type to another.
     ///
-    /// This method is useful to migrate from one datatype to another
+    /// This method is useful to migrate from one datatype to another.
     pub fn convert_data<C, OutputData>(self, convert: C)
         -> error::Result<Database<OutputData, Back, DeSer>>
         where
