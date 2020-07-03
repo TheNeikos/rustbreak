@@ -8,9 +8,9 @@
 use super::Backend;
 use crate::error;
 use crate::error::RustbreakErrorKind as ErrorKind;
+use failure::ResultExt;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
-use failure::ResultExt;
 use tempfile::NamedTempFile;
 
 /// A [`Backend`] using a file given the path.
@@ -25,9 +25,12 @@ pub struct PathBackend {
 impl PathBackend {
     /// Opens a new [`PathBackend`] for a given path.
     pub fn open(path: PathBuf) -> error::Result<Self> {
-        OpenOptions::new().write(true).create(true).open(path.as_path())
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(path.as_path())
             .context(ErrorKind::Backend)?;
-        Ok(Self {path})
+        Ok(Self { path })
     }
 }
 
@@ -35,8 +38,10 @@ impl Backend for PathBackend {
     fn get_data(&mut self) -> error::Result<Vec<u8>> {
         use std::io::Read;
 
-        let mut file = OpenOptions::new().read(true)
-            .open(self.path.as_path()).context(ErrorKind::Backend)?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .open(self.path.as_path())
+            .context(ErrorKind::Backend)?;
         let mut buffer = vec![];
         file.read_to_end(&mut buffer).context(ErrorKind::Backend)?;
         Ok(buffer)
@@ -54,23 +59,24 @@ impl Backend for PathBackend {
             .context(ErrorKind::Backend)?;
         tempf.write_all(data).context(ErrorKind::Backend)?;
         tempf.as_file().sync_all().context(ErrorKind::Backend)?;
-        tempf.persist(self.path.as_path()).context(ErrorKind::Backend)?;
+        tempf
+            .persist(self.path.as_path())
+            .context(ErrorKind::Backend)?;
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use tempfile::NamedTempFile;
     use super::{Backend, PathBackend};
+    use tempfile::NamedTempFile;
 
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_path_backend_existing() {
-        let file = NamedTempFile::new()
-            .expect("could not create temporary file");
-        let mut backend = PathBackend::open(file.path().to_owned())
-            .expect("could not create backend");
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let mut backend =
+            PathBackend::open(file.path().to_owned()).expect("could not create backend");
         let data = [4, 5, 1, 6, 8, 1];
 
         backend.put_data(&data).expect("could not put data");
@@ -80,12 +86,10 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_path_backend_new() {
-        let dir = tempfile::tempdir()
-            .expect("could not create temporary directory");
+        let dir = tempfile::tempdir().expect("could not create temporary directory");
         let mut file_path = dir.path().to_owned();
         file_path.push("rustbreak_path_db.db");
-        let mut backend = PathBackend::open(file_path)
-            .expect("could not create backend");
+        let mut backend = PathBackend::open(file_path).expect("could not create backend");
         let data = [4, 5, 1, 6, 8, 1];
 
         backend.put_data(&data).expect("could not put data");

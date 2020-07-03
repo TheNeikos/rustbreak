@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use std::io::Read;
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 #[cfg(feature = "ron_enc")]
 pub use self::ron::Ron;
@@ -21,21 +21,22 @@ pub use self::bincode::Bincode;
 ///
 /// # Example
 ///
-/// For an imaginary serde compatible encoding scheme 'Frobnar', an example implementation can look
-/// like this:
+/// For an imaginary serde compatible encoding scheme 'Frobnar', an example
+/// implementation can look like this:
 ///
 /// ```rust
 /// extern crate rustbreak;
 /// extern crate serde;
-/// #[macro_use] extern crate failure;
+/// #[macro_use]
+/// extern crate failure;
 ///
-/// use std::io::Read;
-/// use serde::Serialize;
+/// use failure::{Backtrace, Context, Fail};
 /// use serde::de::Deserialize;
-/// use failure::{Context, Fail, Backtrace};
+/// use serde::Serialize;
+/// use std::io::Read;
 ///
-/// use rustbreak::error;
 /// use rustbreak::deser::DeSerializer;
+/// use rustbreak::error;
 ///
 /// #[derive(Fail, Debug)]
 /// #[fail(display = "A FrobnarError ocurred")]
@@ -53,7 +54,8 @@ pub use self::bincode::Bincode;
 /// struct Frobnar;
 ///
 /// impl<T: Serialize> DeSerializer<T> for Frobnar
-///     where for<'de> T: Deserialize<'de>
+/// where
+///     for<'de> T: Deserialize<'de>,
 /// {
 ///     fn serialize(&self, val: &T) -> Result<Vec<u8>, failure::Error> {
 ///         Ok(to_frobnar(val))
@@ -66,28 +68,29 @@ pub use self::bincode::Bincode;
 ///
 /// fn main() {}
 /// ```
-pub trait DeSerializer<T: Serialize + DeserializeOwned> : std::default::Default + Send + Sync + Clone {
+pub trait DeSerializer<T: Serialize + DeserializeOwned>:
+    std::default::Default + Send + Sync + Clone
+{
     /// Serializes a given value to a String
     fn serialize(&self, val: &T) -> Result<Vec<u8>, failure::Error>;
     /// Deserializes a String to a value
     fn deserialize<R: Read>(&self, s: R) -> Result<T, failure::Error>;
 }
 
-
 #[cfg(feature = "ron_enc")]
 mod ron {
     use std::io::Read;
 
-    use serde::Serialize;
-    use serde::de::DeserializeOwned;
     use failure::ResultExt;
+    use serde::de::DeserializeOwned;
+    use serde::Serialize;
 
+    use ron::de::from_reader as from_ron_string;
     use ron::ser::to_string_pretty as to_ron_string;
     use ron::ser::PrettyConfig;
-    use ron::de::from_reader as from_ron_string;
 
-    use crate::error;
     use crate::deser::DeSerializer;
+    use crate::error;
 
     /// The Struct that allows you to use `ron` the Rusty Object Notation
     #[derive(Debug, Default, Clone)]
@@ -95,7 +98,8 @@ mod ron {
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Ron {
         fn serialize(&self, val: &T) -> Result<Vec<u8>, failure::Error> {
-            Ok(to_ron_string(val, PrettyConfig::default()).map(String::into_bytes)
+            Ok(to_ron_string(val, PrettyConfig::default())
+                .map(String::into_bytes)
                 .context(error::RustbreakErrorKind::Serialization)?)
         }
         fn deserialize<R: Read>(&self, s: R) -> Result<T, failure::Error> {
@@ -108,13 +112,13 @@ mod ron {
 mod yaml {
     use std::io::Read;
 
-    use serde_yaml::{to_string as to_yaml_string, from_reader as from_yaml_string};
-    use serde::Serialize;
-    use serde::de::DeserializeOwned;
     use failure::ResultExt;
+    use serde::de::DeserializeOwned;
+    use serde::Serialize;
+    use serde_yaml::{from_reader as from_yaml_string, to_string as to_yaml_string};
 
-    use crate::error;
     use crate::deser::DeSerializer;
+    use crate::error;
 
     /// The struct that allows you to use yaml
     #[derive(Debug, Default, Clone)]
@@ -137,12 +141,12 @@ mod bincode {
     use std::io::Read;
 
     use bincode::{deserialize_from, serialize};
-    use serde::Serialize;
-    use serde::de::DeserializeOwned;
     use failure::ResultExt;
+    use serde::de::DeserializeOwned;
+    use serde::Serialize;
 
-    use crate::error;
     use crate::deser::DeSerializer;
+    use crate::error;
 
     /// The struct that allows you to use bincode
     #[derive(Debug, Default, Clone)]

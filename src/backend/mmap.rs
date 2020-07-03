@@ -13,19 +13,14 @@ struct Mmap {
     /// End of data
     pub end: usize,
     /// Mmap total len
-    pub len: usize
+    pub len: usize,
 }
 
 impl Mmap {
     fn new(len: usize) -> io::Result<Self> {
-        let inner = memmap::MmapOptions::new().len(len)
-            .map_anon()?;
+        let inner = memmap::MmapOptions::new().len(len).map_anon()?;
 
-        Ok(Self {
-            inner,
-            end: 0,
-            len
-        })
+        Ok(Self { inner, end: 0, len })
     }
 
     fn as_slice(&self) -> &[u8] {
@@ -39,7 +34,9 @@ impl Mmap {
     /// Copies data to mmap and modifies data's end cursor.
     fn write(&mut self, data: &[u8]) -> Result<(), failure::Error> {
         if data.len() > self.len {
-            return Err(failure::err_msg("Unexpected write beyond mmap's backend capacity. This is a rustbreak's bug"));
+            return Err(failure::err_msg(
+                "Unexpected write beyond mmap's backend capacity. This is a rustbreak's bug",
+            ));
         }
         self.end = data.len();
         self.as_mut_slice().copy_from_slice(data);
@@ -75,7 +72,7 @@ impl Mmap {
 /// Use `Backend` methods to read and write into it.
 #[derive(Debug)]
 pub struct MmapStorage {
-    mmap: Mmap
+    mmap: Mmap,
 }
 
 impl MmapStorage {
@@ -88,9 +85,7 @@ impl MmapStorage {
     pub fn with_size(len: usize) -> error::Result<Self> {
         let mmap = Mmap::new(len).context(error::RustbreakErrorKind::Backend)?;
 
-        Ok(Self {
-            mmap
-        })
+        Ok(Self { mmap })
     }
 }
 
@@ -104,10 +99,16 @@ impl Backend for MmapStorage {
 
     fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
         if self.mmap.len < data.len() {
-            self.mmap.resize_no_copy(data.len()).context(error::RustbreakErrorKind::Backend)?;
+            self.mmap
+                .resize_no_copy(data.len())
+                .context(error::RustbreakErrorKind::Backend)?;
         }
-        self.mmap.write(data).context(error::RustbreakErrorKind::Backend)?;
-        self.mmap.flush().context(error::RustbreakErrorKind::Backend)?;
+        self.mmap
+            .write(data)
+            .context(error::RustbreakErrorKind::Backend)?;
+        self.mmap
+            .flush()
+            .context(error::RustbreakErrorKind::Backend)?;
         Ok(())
     }
 }

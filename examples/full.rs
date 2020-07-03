@@ -1,13 +1,14 @@
-
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate serde_derive;
 use failure;
 
-use rustbreak::FileDatabase;
 use rustbreak::deser::Ron;
+use rustbreak::FileDatabase;
 
 #[derive(Eq, PartialEq, Debug, Serialize, Deserialize, Clone)]
 enum Country {
-    Italy, UnitedKingdom
+    Italy,
+    UnitedKingdom,
 }
 
 #[derive(Eq, PartialEq, Debug, Serialize, Deserialize, Clone)]
@@ -23,14 +24,20 @@ fn do_main() -> Result<(), failure::Error> {
 
     println!("Writing to Database");
     db.write(|db| {
-        db.insert("john".into(), Person {
-            name: String::from("John Andersson"),
-            country: Country::Italy
-        });
-        db.insert("fred".into(), Person {
-            name: String::from("Fred Johnson"),
-            country: Country::UnitedKingdom
-        });
+        db.insert(
+            "john".into(),
+            Person {
+                name: String::from("John Andersson"),
+                country: Country::Italy,
+            },
+        );
+        db.insert(
+            "fred".into(),
+            Person {
+                name: String::from("Fred Johnson"),
+                country: Country::UnitedKingdom,
+            },
+        );
         println!("Entries: \n{:#?}", db);
     })?;
 
