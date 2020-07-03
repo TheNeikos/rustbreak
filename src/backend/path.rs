@@ -7,10 +7,10 @@
 
 use super::Backend;
 use crate::error;
-use crate::error::RustbreakErrorKind as ErrorKind;
+use crate::error::RustbreakError as ErrorKind;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
-use failure::ResultExt;
+use anyhow::Context;
 use tempfile::NamedTempFile;
 
 /// A [`Backend`] using a file given the path.

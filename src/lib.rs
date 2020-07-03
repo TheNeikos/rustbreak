@@ -68,13 +68,12 @@
 //! ```
 //!
 //! ```rust
-//! # extern crate failure;
 //! # extern crate rustbreak;
 //! # use std::collections::HashMap;
 //! use rustbreak::{MemoryDatabase, deser::Ron};
 //!
 //! # fn main() {
-//! # let func = || -> Result<(), failure::Error> {
+//! # let func = || -> Result<(), anyhow::Error> {
 //! let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
 //!
 //! println!("Writing to Database");
@@ -95,13 +94,12 @@
 //!
 //! Or alternatively:
 //! ```rust
-//! # extern crate failure;
 //! # extern crate rustbreak;
 //! # use std::collections::HashMap;
 //! use rustbreak::{MemoryDatabase, deser::Ron};
 //!
 //! # fn main() {
-//! # let func = || -> Result<(), failure::Error> {
+//! # let func = || -> Result<(), anyhow::Error> {
 //! let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
 //!
 //! println!("Writing to Database");
@@ -182,7 +180,6 @@
 //! [daybreak]: https://propublica.github.io/daybreak
 //! [examples]: https://github.com/TheNeikos/rustbreak/tree/master/examples
 //! [ron]: https://github.com/ron-rs/ron
-//! [failure]: https://boats.gitlab.io/failure/intro.html
 //! [features]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features
 
 /// The rustbreak errors that can be returned
@@ -201,7 +198,7 @@ use std::fmt::Debug;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use failure::ResultExt;
+use anyhow::Context;
 
 use crate::backend::{Backend, MemoryBackend, FileBackend, PathBackend};
 #[cfg(feature = "mmap")]
@@ -219,7 +216,7 @@ use crate::backend::MmapStorage;
 /// # Panics
 ///
 /// If the backend or the de/serialization panics, the database is poisoned. This means that any
-/// subsequent writes/reads will fail with an `error::RustbreakErrorKind::PoisonError`.
+/// subsequent writes/reads will fail with an `error::RustbreakError::PoisonError`.
 /// You can only recover from this by re-creating the Database Object.
 #[derive(Debug)]
 pub struct Database<Data, Back, DeSer>
@@ -256,7 +253,6 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # extern crate rustbreak;
     /// # extern crate serde;
     /// # extern crate tempfile;
-    /// # extern crate failure;
     /// use rustbreak::{FileDatabase, deser::Ron};
     ///
     /// #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -265,7 +261,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// }
     ///
     /// # fn main() {
-    /// # let func = || -> Result<(), failure::Error> {
+    /// # let func = || -> Result<(), anyhow::Error> {
     /// # let file = tempfile::tempfile()?;
     /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
     ///
@@ -285,7 +281,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     pub fn write<T, R>(&self, task: T) -> error::Result<R>
         where T: FnOnce(&mut Data) -> R
     {
-        let mut lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut lock = self.data.write().map_err(|_| error::RustbreakError::Poison)?;
         Ok(task(&mut lock))
     }
 
@@ -306,7 +302,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///
     /// # Panics
     ///
-    /// When the closure panics, it is caught and a `error::RustbreakErrorKind::WritePanic` will be
+    /// When the closure panics, it is caught and a `error::RustbreakError::WritePanic` will be
     /// returned.
     ///
     /// # Examples
@@ -316,14 +312,10 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # extern crate rustbreak;
     /// # extern crate serde;
     /// # extern crate tempfile;
-    /// # extern crate failure;
     /// use rustbreak::{
     ///     FileDatabase,
     ///     deser::Ron,
-    ///     error::{
-    ///         RustbreakError,
-    ///         RustbreakErrorKind,
-    ///     }
+    ///     error::RustbreakError,
     /// };
     ///
     /// #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -332,7 +324,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// }
     ///
     /// # fn main() {
-    /// # let func = || -> Result<(), failure::Error> {
+    /// # let func = || -> Result<(), anyhow::Error> {
     /// # let file = tempfile::tempfile()?;
     /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
     ///
@@ -341,8 +333,8 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///     panic!("We panic inside the write code.");
     /// }).expect_err("This should have been caught");
     ///
-    /// match result.kind() {
-    ///     RustbreakErrorKind::WritePanic => {
+    /// match result.downcast::<RustbreakError>().expect("To get a rustbreak error") {
+    ///     RustbreakError::WritePanic => {
     ///         // We can now handle this, in this example we will just ignore it
     ///     }
     ///     e => {
@@ -366,11 +358,11 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     pub fn write_safe<T>(&self, task: T) -> error::Result<()>
         where T: FnOnce(&mut Data) + std::panic::UnwindSafe,
     {
-        let mut lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut lock = self.data.write().map_err(|_| error::RustbreakError::Poison)?;
         let mut data = lock.clone();
         ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
             task(&mut data);
-        })).map_err(|_| error::RustbreakErrorKind::WritePanic)?;
+        })).map_err(|_| error::RustbreakError::WritePanic)?;
         *lock = data;
         Ok(())
     }
@@ -384,17 +376,17 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///
     /// May return:
     ///
-    /// - `error::RustbreakErrorKind::Backend`
+    /// - `error::RustbreakError::Backend`
     ///
     /// # Panics
     ///
     /// If you panic in the closure, the database is poisoned. This means that any
-    /// subsequent writes/reads will fail with an `error::RustbreakErrorKind::Poison`.
+    /// subsequent writes/reads will fail with an `error::RustbreakError::Poison`.
     /// You can only recover from this by re-creating the Database Object.
     pub fn read<T, R>(&self, task: T) -> error::Result<R>
         where T: FnOnce(&Data) -> R
     {
-        let mut lock = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut lock = self.data.read().map_err(|_| error::RustbreakError::Poison)?;
         Ok(task(&mut lock))
     }
 
@@ -410,7 +402,6 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # extern crate rustbreak;
     /// # extern crate serde;
     /// # extern crate tempfile;
-    /// # extern crate failure;
     /// use rustbreak::{FileDatabase, deser::Ron};
     ///
     /// #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -419,7 +410,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// }
     ///
     /// # fn main() {
-    /// # let func = || -> Result<(), failure::Error> {
+    /// # let func = || -> Result<(), anyhow::Error> {
     /// # let file = tempfile::tempfile()?;
     /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
     ///
@@ -436,7 +427,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # }
     /// ```
     pub fn borrow_data<'a>(&'a self) -> error::Result<RwLockReadGuard<'a, Data>> {
-        self.data.read().map_err(|_| error::RustbreakErrorKind::Poison.into())
+        self.data.read().map_err(|_| error::RustbreakError::Poison.into())
     }
 
     /// Write lock the database and get access to the underlying struct
@@ -459,7 +450,6 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # extern crate rustbreak;
     /// # extern crate serde;
     /// # extern crate tempfile;
-    /// # extern crate failure;
     /// use rustbreak::{FileDatabase, deser::Ron};
     ///
     /// #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -468,7 +458,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// }
     ///
     /// # fn main() {
-    /// # let func = || -> Result<(), failure::Error> {
+    /// # let func = || -> Result<(), anyhow::Error> {
     /// # let file = tempfile::tempfile()?;
     /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
     ///
@@ -486,35 +476,35 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # }
     /// ```
     pub fn borrow_data_mut<'a>(&'a self) -> error::Result<RwLockWriteGuard<'a, Data>> {
-        self.data.write().map_err(|_| error::RustbreakErrorKind::Poison.into())
+        self.data.write().map_err(|_| error::RustbreakError::Poison.into())
     }
 
     fn inner_load(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
         let new_data = deser.deserialize(
-            &backend.get_data().context(error::RustbreakErrorKind::Backend)?[..]
-        ).context(error::RustbreakErrorKind::Deserialization)?;
+            &backend.get_data().context(error::RustbreakError::Backend)?[..]
+        ).context(error::RustbreakError::Deserialization)?;
 
         Ok(new_data)
     }
 
     /// Load the Data from the backend
     pub fn load(&self) -> error::Result<()> {
-        let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut data = self.data.write().map_err(|_| error::RustbreakError::Poison)?;
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakError::Poison)?;
 
-        *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
+        *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakError::Backend)?;
         Ok(())
     }
 
     /// Flush the data structure to the backend
     pub fn save(&self) -> error::Result<()> {
-        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        let data = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakError::Poison)?;
+        let data = self.data.read().map_err(|_| error::RustbreakError::Poison)?;
 
         let ser = self.deser.serialize(&*data)
-                    .context(error::RustbreakErrorKind::Serialization)?;
+                    .context(error::RustbreakError::Serialization)?;
 
-        backend.put_data(&ser).context(error::RustbreakErrorKind::Backend)?;
+        backend.put_data(&ser).context(error::RustbreakError::Backend)?;
         Ok(())
     }
 
@@ -522,14 +512,14 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///
     /// To make sure you have the latest data, call this method with `load` true
     pub fn get_data(&self, load: bool) -> error::Result<Data> {
-        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakError::Poison)?;
         if load {
-            let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
-            *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakErrorKind::Backend)?;
+            let mut data = self.data.write().map_err(|_| error::RustbreakError::Poison)?;
+            *data = Self::inner_load(&mut backend, &self.deser).context(error::RustbreakError::Backend)?;
             drop(backend);
             Ok(data.clone())
         } else {
-            let data = self.data.read().map_err(|_| error::RustbreakErrorKind::Poison)?;
+            let data = self.data.read().map_err(|_| error::RustbreakError::Poison)?;
             drop(backend);
             Ok(data.clone())
         }
@@ -539,15 +529,15 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     ///
     /// To save the data afterwards, call with `save` true.
     pub fn put_data(&self, new_data: Data, save: bool) -> error::Result<()> {
-        let mut backend = self.backend.lock().map_err(|_| error::RustbreakErrorKind::Poison)?;
-        let mut data = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut backend = self.backend.lock().map_err(|_| error::RustbreakError::Poison)?;
+        let mut data = self.data.write().map_err(|_| error::RustbreakError::Poison)?;
         *data = new_data;
         if save {
             // TODO: Spin this into its own method
             let ser = self.deser.serialize(&data)
-                        .context(error::RustbreakErrorKind::Serialization)?;
+                        .context(error::RustbreakError::Serialization)?;
 
-            backend.put_data(&ser).context(error::RustbreakErrorKind::Backend)?;
+            backend.put_data(&ser).context(error::RustbreakError::Backend)?;
             drop(backend);
         }
         Ok(())
@@ -564,8 +554,8 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
 
     /// Break a database into its individual parts
     pub fn into_inner(self) -> error::Result<(Data, Back, DeSer)> {
-        Ok((self.data.into_inner().map_err(|_| error::RustbreakErrorKind::Poison)?,
-            self.backend.into_inner().map_err(|_| error::RustbreakErrorKind::Poison)?,
+        Ok((self.data.into_inner().map_err(|_| error::RustbreakError::Poison)?,
+            self.backend.into_inner().map_err(|_| error::RustbreakError::Poison)?,
             self.deser))
     }
 
@@ -582,7 +572,6 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # extern crate rustbreak;
     /// # extern crate serde;
     /// # extern crate tempfile;
-    /// # extern crate failure;
     /// use rustbreak::{FileDatabase, deser::Ron};
     ///
     /// #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -591,7 +580,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// }
     ///
     /// # fn main() {
-    /// # let func = || -> Result<(), failure::Error> {
+    /// # let func = || -> Result<(), anyhow::Error> {
     /// # let file = tempfile::tempfile()?;
     /// let db = FileDatabase::<Data, Ron>::from_file(file, Data { level: 0 })?;
     ///
@@ -613,7 +602,7 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
     /// # }
     /// ```
     pub fn try_clone(&self) -> error::Result<MemoryDatabase<Data, DeSer>> {
-        let lock = self.data.write().map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let lock = self.data.write().map_err(|_| error::RustbreakError::Poison)?;
 
         Ok(Database {
             data: RwLock::new(lock.clone()),
@@ -636,7 +625,7 @@ impl<Data, DeSer> Database<Data, FileBackend, DeSer>
         -> error::Result<FileDatabase<Data, DeSer>>
         where S: AsRef<std::path::Path>
     {
-        let backend = FileBackend::open(path).context(error::RustbreakErrorKind::Backend)?;
+        let backend = FileBackend::open(path).context(error::RustbreakError::Backend)?;
 
         Ok(Database {
             data: RwLock::new(data),
@@ -674,7 +663,7 @@ impl<Data, DeSer> Database<Data, PathBackend, DeSer>
     {
         #[allow(clippy::redundant_clone)] // false positive
         let backend = PathBackend::open(path.to_owned())
-            .context(error::RustbreakErrorKind::Backend)?;
+            .context(error::RustbreakError::Backend)?;
 
         Ok(Database {
             data: RwLock::new(data),
