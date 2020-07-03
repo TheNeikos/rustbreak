@@ -148,6 +148,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_file_backend_from_file() {
         let file = tempfile::tempfile()
             .expect("could not create temporary file");
@@ -163,6 +164,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_file_backend_open_existing() {
         let file = tempfile::NamedTempFile::new()
             .expect("could not create temporary file");
@@ -175,6 +177,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_file_backend_open_new() {
         let dir = tempfile::tempdir()
             .expect("could not create temporary directory");
@@ -190,6 +193,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_file_backend_into_inner() {
         let file = tempfile::tempfile()
             .expect("could not create temporary file");

@@ -119,6 +119,17 @@ fn create_pathdb<S: DeSerializer<Data> + Debug>() -> PathDatabase<Data, S> {
 macro_rules! test_basic_save_load {
     ($name:ident, $db:expr, $enc:ty) => {
         #[test]
+        #[cfg_attr(miri, ignore)]
+        fn $name() {
+            let db: Database<Data, _, $enc> = $db;
+            test_basic_save_load(&db);
+            test_put_data(&db);
+            test_multi_borrow(&db);
+            test_convert_data(db);
+        }
+    };
+    ($name:ident, $db:expr, $enc:ty, miri=true) => {
+        #[test]
         fn $name() {
             let db: Database<Data, _, $enc> = $db;
             test_basic_save_load(&db);
@@ -137,9 +148,9 @@ test_basic_save_load! (filepath_ron, create_filedb_from_path(), Ron);
 test_basic_save_load! (filepath_yaml, create_filedb_from_path(), Yaml);
 test_basic_save_load! (filepath_bincode, create_filedb_from_path(), Bincode);
 
-test_basic_save_load! (mem_ron, create_memdb(), Ron);
-test_basic_save_load! (mem_yaml, create_memdb(), Yaml);
-test_basic_save_load! (mem_bincode, create_memdb(), Bincode);
+test_basic_save_load! (mem_ron, create_memdb(), Ron, miri=true);
+test_basic_save_load! (mem_yaml, create_memdb(), Yaml, miri=true);
+test_basic_save_load! (mem_bincode, create_memdb(), Bincode, miri=true);
 
 test_basic_save_load! (mmap_ron, create_mmapdb(), Ron);
 test_basic_save_load! (mmap_yaml, create_mmapdb(), Yaml);

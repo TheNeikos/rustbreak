@@ -65,6 +65,7 @@ mod tests {
     use super::{Backend, PathBackend};
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_path_backend_existing() {
         let file = NamedTempFile::new()
             .expect("could not create temporary file");
@@ -77,6 +78,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_path_backend_new() {
         let dir = tempfile::tempdir()
             .expect("could not create temporary directory");

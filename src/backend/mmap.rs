@@ -117,6 +117,7 @@ mod tests {
     use super::{Backend, MmapStorage};
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_mmap_storage() {
         let data = [4, 5, 1, 6, 8, 1];
         let mut storage = MmapStorage::new().expect("To crate mmap storage");
@@ -127,6 +128,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_mmap_storage_extend() {
         let data = [4, 5, 1, 6, 8, 1];
         let mut storage = MmapStorage::with_size(4).expect("To crate mmap storage");
@@ -138,6 +140,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_mmap_storage_increase_by_new_data_size() {
         let data = [4, 5, 1, 6, 8, 1];
         let mut storage = MmapStorage::with_size(1).expect("To crate mmap storage");
