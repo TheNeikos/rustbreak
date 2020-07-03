@@ -50,7 +50,7 @@ impl Mmap {
         self.inner.flush()
     }
 
-    /// Increases mmap size by max(old_size*2, new_size).
+    /// Increases mmap size by `max(old_size*2, new_size)`.
     ///
     /// Note that it doesn't copy original data
     fn resize_no_copy(&mut self, new_size: usize) -> io::Result<()> {

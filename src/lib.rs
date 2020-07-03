@@ -17,6 +17,19 @@
     unused_must_use,
     unused_mut,
     while_true,
+    clippy::panic,
+    clippy::print_stdout,
+    clippy::todo,
+    clippy::unwrap_used,
+    clippy::wrong_pub_self_convention,
+)]
+
+#![warn(clippy::pedantic)]
+
+// part of `clippy::pedantic`, causing many warnings
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::module_name_repetitions
 )]
 
 //! # Rustbreak
@@ -214,7 +227,7 @@ use crate::backend::MmapStorage;
 ///
 /// - `Data`: Is the Data, you must specify this
 /// - `Back`: The storage backend.
-/// - `DeSer`: The Serializer/Deserializer or short DeSer. Check the [`deser`] module for other
+/// - `DeSer`: The Serializer/Deserializer or short `DeSer`. Check the [`deser`] module for other
 ///     strategies.
 ///
 /// # Panics
@@ -490,14 +503,6 @@ impl<Data, Back, DeSer> Database<Data, Back, DeSer>
         self.data.write().map_err(|_| error::RustbreakErrorKind::Poison.into())
     }
 
-//     // Now replaced by [`load_get_data_lock`].
-//     fn inner_load(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
-//         let new_data = deser.deserialize(
-//             &backend.get_data().context(error::RustbreakErrorKind::Backend)?[..]
-//         ).context(error::RustbreakErrorKind::Deserialization)?;
-//
-//         Ok(new_data)
-//     }
 
     /// Like [`Self::load`] but returns the write lock to data it used.
     fn load_get_data_lock(&self) -> error::Result<RwLockWriteGuard<'_, Data>> {
