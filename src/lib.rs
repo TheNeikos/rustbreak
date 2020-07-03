@@ -20,7 +20,7 @@
     clippy::panic,
     clippy::print_stdout,
     clippy::todo,
-    clippy::unwrap_used,
+    //clippy::unwrap_used, // not yet in stable
     clippy::wrong_pub_self_convention
 )]
 #![warn(clippy::pedantic)]
