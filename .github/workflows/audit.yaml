@@ -1,0 +1,17 @@
+# Run cargo audit once every week and create issues for vulnerabilities found
+name: Security Audit
+on:
+  schedule:
+    # Run once every week (Sunday at midnight)
+    - cron: '0 0 * * 0'
+jobs:
+  audit:
+    name: Cargo Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v1
+      - name: Run cargo audit
+        uses: actions-rs/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

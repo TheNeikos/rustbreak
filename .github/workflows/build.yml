@@ -1,10 +1,10 @@
+name: Check
+
 on:
   push:
     branches:
       - master
   pull_request:
-
-name: Quickstart
 
 jobs:
   check:
@@ -48,7 +48,7 @@ jobs:
           args: --all-features
 
   lints:
-    name: Lints
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -60,7 +60,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-          components: rustfmt, clippy
+          components: rustfmt
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
@@ -68,8 +68,106 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Run cargo clippy
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            components: clippy
+            override: true
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+
+  tsan:
+    name: Thread Sanitiser
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rust-src
+
+      - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
-          command: clippy
-          args: -- -D warnings
+          command: test
+          args: -Z build-std --target x86_64-unknown-linux-gnu --all-features
+        env:
+          CC: clang
+          CXX: clang++
+          CFLAGS: -fsanitize=thread
+          CXXFLAGS: -fsanitize=thread
+          RUSTFLAGS: -Zsanitizer=thread
+          RUSTDOCFLAGS: -Zsanitizer=thread
+          TSAN_OPTIONS: second_deadlock_stack=1
+
+  miri:
+    name: Miri
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Get latest toolchain version with miri
+        run: echo "::set-env name=TOOLCHAIN::$(curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)"
+
+      - name: Install latest nightly toolchain with miri
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-${{ env.TOOLCHAIN }}
+          override: true
+          components: rust-src, miri
+
+      - name: Run cargo test
+        run: cargo miri test --all-features
+        env:
+          MIRI_LOG: 1
+          MIRI_BACKTRACE: 1
+
+  code_cov:
+    name: Code Coverage (Tarpaulin)
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          args: --ignore-tests --all-features --force-clean
+          out-type: Xml
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1.0.10
+        with:
+          file: cobertura.xml
+          name: cargo-tarpaulin-xml-codecov
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report
+          path: cobertura.xml
