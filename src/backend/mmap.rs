@@ -1,5 +1,3 @@
-use memmap;
-use failure;
 use failure::ResultExt;
 
 use super::Backend;
@@ -12,22 +10,17 @@ use std::io;
 #[derive(Debug)]
 struct Mmap {
     inner: memmap::MmapMut,
-    //End of data
+    /// End of data
     pub end: usize,
-    //Mmap total len
-    pub len: usize
+    /// Mmap total len
+    pub len: usize,
 }
 
 impl Mmap {
     fn new(len: usize) -> io::Result<Self> {
-        let inner = memmap::MmapOptions::new().len(len)
-            .map_anon()?;
+        let inner = memmap::MmapOptions::new().len(len).map_anon()?;
 
-        Ok(Self {
-            inner,
-            end: 0,
-            len
-        })
+        Ok(Self { inner, end: 0, len })
     }
 
     fn as_slice(&self) -> &[u8] {
@@ -38,10 +31,12 @@ impl Mmap {
         &mut self.inner[..self.end]
     }
 
-    //Copies data to mmap and modifies data's end cursor.
+    /// Copies data to mmap and modifies data's end cursor.
     fn write(&mut self, data: &[u8]) -> Result<(), failure::Error> {
         if data.len() > self.len {
-            return Err(failure::err_msg("Unexpected write beyond mmap's backend capacity. This is a rustbreak's bug"));
+            return Err(failure::err_msg(
+                "Unexpected write beyond mmap's backend capacity. This is a rustbreak's bug",
+            ));
         }
         self.end = data.len();
         self.as_mut_slice().copy_from_slice(data);
@@ -52,11 +47,12 @@ impl Mmap {
         self.inner.flush()
     }
 
-    //Increases mmap size by max(old_size*2, new_size)
-    //Note that it doesn't copy original data
+    /// Increases mmap size by `max(old_size*2, new_size)`.
+    ///
+    /// Note that it doesn't copy original data
     fn resize_no_copy(&mut self, new_size: usize) -> io::Result<()> {
         let len = cmp::max(self.len + self.len, new_size);
-        //Make sure we don't discard old mmap before creating new one;
+        // Make sure we don't discard old mmap before creating new one;
         let new_mmap = Self::new(len)?;
         *self = new_mmap;
         Ok(())
@@ -76,22 +72,20 @@ impl Mmap {
 /// Use `Backend` methods to read and write into it.
 #[derive(Debug)]
 pub struct MmapStorage {
-    mmap: Mmap
+    mmap: Mmap,
 }
 
 impl MmapStorage {
-    ///Creates new storage with 1024 bytes
+    /// Creates new storage with 1024 bytes.
     pub fn new() -> error::Result<Self> {
         Self::with_size(1024)
     }
 
-    ///Creates new storage with custom size.
+    /// Creates new storage with custom size.
     pub fn with_size(len: usize) -> error::Result<Self> {
         let mmap = Mmap::new(len).context(error::RustbreakErrorKind::Backend)?;
 
-        Ok(Self {
-            mmap
-        })
+        Ok(Self { mmap })
     }
 }
 
@@ -105,10 +99,16 @@ impl Backend for MmapStorage {
 
     fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
         if self.mmap.len < data.len() {
-            self.mmap.resize_no_copy(data.len()).context(error::RustbreakErrorKind::Backend)?;
+            self.mmap
+                .resize_no_copy(data.len())
+                .context(error::RustbreakErrorKind::Backend)?;
         }
-        self.mmap.write(data).context(error::RustbreakErrorKind::Backend)?;
-        self.mmap.flush().context(error::RustbreakErrorKind::Backend)?;
+        self.mmap
+            .write(data)
+            .context(error::RustbreakErrorKind::Backend)?;
+        self.mmap
+            .flush()
+            .context(error::RustbreakErrorKind::Backend)?;
         Ok(())
     }
 }
@@ -118,6 +118,7 @@ mod tests {
     use super::{Backend, MmapStorage};
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_mmap_storage() {
         let data = [4, 5, 1, 6, 8, 1];
         let mut storage = MmapStorage::new().expect("To crate mmap storage");
@@ -128,6 +129,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_mmap_storage_extend() {
         let data = [4, 5, 1, 6, 8, 1];
         let mut storage = MmapStorage::with_size(4).expect("To crate mmap storage");
@@ -139,6 +141,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_mmap_storage_increase_by_new_data_size() {
         let data = [4, 5, 1, 6, 8, 1];
         let mut storage = MmapStorage::with_size(1).expect("To crate mmap storage");
