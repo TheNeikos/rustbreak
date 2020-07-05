@@ -520,7 +520,7 @@ where
     /// Load data from backend and return this data.
     fn load_from_backend(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
         let new_data = deser
-            .deserialize(&backend.get_data().context(ErrorKind::Backend)?[..])
+            .deserialize(&backend.get_data()?[..])
             .context(ErrorKind::Deserialization)?;
 
         Ok(new_data)
@@ -552,7 +552,7 @@ where
         drop(lock);
 
         let mut backend = self.backend.lock().map_err(|_| ErrorKind::Poison)?;
-        backend.put_data(&ser).context(ErrorKind::Backend)?;
+        backend.put_data(&ser)?;
         Ok(())
     }
 
