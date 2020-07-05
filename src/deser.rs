@@ -71,9 +71,9 @@ pub use self::bincode::Bincode;
 pub trait DeSerializer<T: Serialize + DeserializeOwned>:
     std::default::Default + Send + Sync + Clone
 {
-    /// Serializes a given value to a String
+    /// Serializes a given value to a [`String`].
     fn serialize(&self, val: &T) -> Result<Vec<u8>, failure::Error>;
-    /// Deserializes a String to a value
+    /// Deserializes a [`String`] to a value.
     fn deserialize<R: Read>(&self, s: R) -> Result<T, failure::Error>;
 }
 
@@ -81,7 +81,6 @@ pub trait DeSerializer<T: Serialize + DeserializeOwned>:
 mod ron {
     use std::io::Read;
 
-    use failure::ResultExt;
     use serde::de::DeserializeOwned;
     use serde::Serialize;
 
@@ -90,20 +89,17 @@ mod ron {
     use ron::ser::PrettyConfig;
 
     use crate::deser::DeSerializer;
-    use crate::error;
 
-    /// The Struct that allows you to use `ron` the Rusty Object Notation
+    /// The Struct that allows you to use `ron` the Rusty Object Notation.
     #[derive(Debug, Default, Clone)]
     pub struct Ron;
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Ron {
         fn serialize(&self, val: &T) -> Result<Vec<u8>, failure::Error> {
-            Ok(to_ron_string(val, PrettyConfig::default())
-                .map(String::into_bytes)
-                .context(error::RustbreakErrorKind::Serialization)?)
+            Ok(to_ron_string(val, PrettyConfig::default()).map(String::into_bytes)?)
         }
         fn deserialize<R: Read>(&self, s: R) -> Result<T, failure::Error> {
-            Ok(from_ron_string(s).context(error::RustbreakErrorKind::Deserialization)?)
+            Ok(from_ron_string(s)?)
         }
     }
 }
@@ -112,26 +108,22 @@ mod ron {
 mod yaml {
     use std::io::Read;
 
-    use failure::ResultExt;
     use serde::de::DeserializeOwned;
     use serde::Serialize;
     use serde_yaml::{from_reader as from_yaml_string, to_string as to_yaml_string};
 
     use crate::deser::DeSerializer;
-    use crate::error;
 
-    /// The struct that allows you to use yaml
+    /// The struct that allows you to use yaml.
     #[derive(Debug, Default, Clone)]
     pub struct Yaml;
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Yaml {
         fn serialize(&self, val: &T) -> Result<Vec<u8>, failure::Error> {
-            Ok(to_yaml_string(val)
-                .map(String::into_bytes)
-                .context(error::RustbreakErrorKind::Serialization)?)
+            Ok(to_yaml_string(val).map(String::into_bytes)?)
         }
         fn deserialize<R: Read>(&self, s: R) -> Result<T, failure::Error> {
-            Ok(from_yaml_string(s).context(error::RustbreakErrorKind::Deserialization)?)
+            Ok(from_yaml_string(s)?)
         }
     }
 }
@@ -141,12 +133,10 @@ mod bincode {
     use std::io::Read;
 
     use bincode::{deserialize_from, serialize};
-    use failure::ResultExt;
     use serde::de::DeserializeOwned;
     use serde::Serialize;
 
     use crate::deser::DeSerializer;
-    use crate::error;
 
     /// The struct that allows you to use bincode
     #[derive(Debug, Default, Clone)]
@@ -154,10 +144,10 @@ mod bincode {
 
     impl<T: Serialize + DeserializeOwned> DeSerializer<T> for Bincode {
         fn serialize(&self, val: &T) -> Result<Vec<u8>, failure::Error> {
-            Ok(serialize(val).context(error::RustbreakErrorKind::Serialization)?)
+            Ok(serialize(val)?)
         }
         fn deserialize<R: Read>(&self, s: R) -> Result<T, failure::Error> {
-            Ok(deserialize_from(s).context(error::RustbreakErrorKind::Deserialization)?)
+            Ok(deserialize_from(s)?)
         }
     }
 }
