@@ -20,7 +20,7 @@ struct Person {
 fn do_main() -> Result<(), failure::Error> {
     use std::collections::HashMap;
 
-    let db = FileDatabase::<HashMap<String, Person>, Ron>::from_path("test.ron", HashMap::new())?;
+    let db = FileDatabase::<HashMap<String, Person>, Ron>::load_from_path_or_default("test.ron")?;
 
     println!("Writing to Database");
     db.write(|db| {

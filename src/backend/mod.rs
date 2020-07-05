@@ -12,7 +12,7 @@
 
 use failure::ResultExt;
 
-use crate::error;
+use crate::error::{self, RustbreakErrorKind as ErrorKind};
 
 /// The Backend Trait.
 ///
@@ -59,7 +59,7 @@ pub use mmap::MmapStorage;
 mod path;
 pub use path::PathBackend;
 
-/// A backend using a file
+/// A backend using a file.
 #[derive(Debug)]
 pub struct FileBackend(std::fs::File);
 
@@ -70,10 +70,10 @@ impl Backend for FileBackend {
         let mut buffer = vec![];
         self.0
             .seek(SeekFrom::Start(0))
-            .context(error::RustbreakErrorKind::Backend)?;
+            .context(ErrorKind::Backend)?;
         self.0
             .read_to_end(&mut buffer)
-            .context(error::RustbreakErrorKind::Backend)?;
+            .context(ErrorKind::Backend)?;
         Ok(buffer)
     }
 
@@ -82,16 +82,10 @@ impl Backend for FileBackend {
 
         self.0
             .seek(SeekFrom::Start(0))
-            .context(error::RustbreakErrorKind::Backend)?;
-        self.0
-            .set_len(0)
-            .context(error::RustbreakErrorKind::Backend)?;
-        self.0
-            .write_all(data)
-            .context(error::RustbreakErrorKind::Backend)?;
-        self.0
-            .sync_all()
-            .context(error::RustbreakErrorKind::Backend)?;
+            .context(ErrorKind::Backend)?;
+        self.0.set_len(0).context(ErrorKind::Backend)?;
+        self.0.write_all(data).context(ErrorKind::Backend)?;
+        self.0.sync_all().context(ErrorKind::Backend)?;
         Ok(())
     }
 }
@@ -108,7 +102,7 @@ impl FileBackend {
                 .write(true)
                 .create(true)
                 .open(path)
-                .context(error::RustbreakErrorKind::Backend)?,
+                .context(ErrorKind::Backend)?,
         ))
     }
 
@@ -122,6 +116,58 @@ impl FileBackend {
     #[must_use]
     pub fn into_inner(self) -> std::fs::File {
         self.0
+    }
+}
+
+impl FileBackend {
+    /// Opens a new [`FileBackend`] for a given path.
+    /// Errors when the file doesn't yet exist.
+    pub fn from_path_or_fail<P: AsRef<std::path::Path>>(path: P) -> error::Result<Self> {
+        use std::fs::OpenOptions;
+
+        Ok(Self(
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(path)
+                .context(ErrorKind::Backend)?,
+        ))
+    }
+
+    /// Opens a new [`FileBackend`] for a given path.
+    /// Creates a file if it doesn't yet exist.
+    ///
+    /// Returns the [`FileBackend`] and whether the file already existed.
+    pub fn from_path_or_create<P: AsRef<std::path::Path>>(path: P) -> error::Result<(Self, bool)> {
+        use std::fs::OpenOptions;
+
+        let exists = path.as_ref().is_file();
+        Ok((
+            Self(
+                OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .open(path)
+                    .context(ErrorKind::Backend)?,
+            ),
+            exists,
+        ))
+    }
+
+    /// Opens a new [`FileBackend`] for a given path.
+    /// Creates a file if it doesn't yet exist, and calls `closure` with it.
+    pub fn from_path_or_create_and<P, C>(path: P, closure: C) -> error::Result<Self>
+    where
+        C: FnOnce(&mut std::fs::File),
+        P: AsRef<std::path::Path>,
+    {
+        Self::from_path_or_create(path).map(|(mut b, exists)| {
+            if exists {
+                closure(&mut b.0)
+            }
+            b
+        })
     }
 }
 

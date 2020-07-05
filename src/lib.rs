@@ -210,6 +210,7 @@ pub use crate::error::RustbreakError;
 
 use std::fmt::Debug;
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use failure::ResultExt;
@@ -219,6 +220,8 @@ use serde::Serialize;
 #[cfg(feature = "mmap")]
 use crate::backend::MmapStorage;
 use crate::backend::{Backend, FileBackend, MemoryBackend, PathBackend};
+
+use crate::error::RustbreakErrorKind as ErrorKind;
 
 /// The Central Database to Rustbreak.
 ///
@@ -302,10 +305,7 @@ where
     where
         T: FnOnce(&mut Data) -> R,
     {
-        let mut lock = self
-            .data
-            .write()
-            .map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut lock = self.data.write().map_err(|_| ErrorKind::Poison)?;
         Ok(task(&mut lock))
     }
 
@@ -388,15 +388,12 @@ where
     where
         T: FnOnce(&mut Data) + std::panic::UnwindSafe,
     {
-        let mut lock = self
-            .data
-            .write()
-            .map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut lock = self.data.write().map_err(|_| ErrorKind::Poison)?;
         let mut data = lock.clone();
         std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
             task(&mut data);
         }))
-        .map_err(|_| error::RustbreakErrorKind::WritePanic)?;
+        .map_err(|_| ErrorKind::WritePanic)?;
         *lock = data;
         Ok(())
     }
@@ -422,10 +419,7 @@ where
     where
         T: FnOnce(&Data) -> R,
     {
-        let mut lock = self
-            .data
-            .read()
-            .map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut lock = self.data.read().map_err(|_| ErrorKind::Poison)?;
         Ok(task(&mut lock))
     }
 
@@ -467,9 +461,7 @@ where
     /// # }
     /// ```
     pub fn borrow_data<'a>(&'a self) -> error::Result<RwLockReadGuard<'a, Data>> {
-        self.data
-            .read()
-            .map_err(|_| error::RustbreakErrorKind::Poison.into())
+        self.data.read().map_err(|_| ErrorKind::Poison.into())
     }
 
     /// Write lock the database and get access to the underlying struct.
@@ -522,34 +514,26 @@ where
     /// # }
     /// ```
     pub fn borrow_data_mut<'a>(&'a self) -> error::Result<RwLockWriteGuard<'a, Data>> {
-        self.data
-            .write()
-            .map_err(|_| error::RustbreakErrorKind::Poison.into())
+        self.data.write().map_err(|_| ErrorKind::Poison.into())
+    }
+
+    /// Load data from backend and return this data.
+    fn load_from_backend(backend: &mut Back, deser: &DeSer) -> error::Result<Data> {
+        let new_data = deser
+            .deserialize(&backend.get_data().context(ErrorKind::Backend)?[..])
+            .context(ErrorKind::Deserialization)?;
+
+        Ok(new_data)
     }
 
     /// Like [`Self::load`] but returns the write lock to data it used.
     fn load_get_data_lock(&self) -> error::Result<RwLockWriteGuard<'_, Data>> {
-        let mut backend_lock = self
-            .backend
-            .lock()
-            .map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut backend_lock = self.backend.lock().map_err(|_| ErrorKind::Poison)?;
 
-        //let fresh_data = Self::inner_load(&mut backend_lock,
-        // &self.deser).context(error::RustbreakErrorKind::Backend)?;
-        let fresh_data = self
-            .deser
-            .deserialize(
-                &backend_lock
-                    .get_data()
-                    .context(error::RustbreakErrorKind::Backend)?[..],
-            )
-            .context(error::RustbreakErrorKind::Deserialization)?;
+        let fresh_data = Self::load_from_backend(&mut backend_lock, &self.deser)?;
         drop(backend_lock);
 
-        let mut data_write_lock = self
-            .data
-            .write()
-            .map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut data_write_lock = self.data.write().map_err(|_| ErrorKind::Poison)?;
         *data_write_lock = fresh_data;
         Ok(data_write_lock)
     }
@@ -560,31 +544,21 @@ where
     }
 
     /// Like [`Self::save`] but with explicit read (or write) lock to data.
-    fn save_data_locked<L: Deref<Target = Data>>(&self, lock: L) -> error::Result<()>
-//where L::Target = Data
-    {
+    fn save_data_locked<L: Deref<Target = Data>>(&self, lock: L) -> error::Result<()> {
         let ser = self
             .deser
             .serialize(lock.deref())
-            .context(error::RustbreakErrorKind::Serialization)?;
+            .context(ErrorKind::Serialization)?;
         drop(lock);
 
-        let mut backend = self
-            .backend
-            .lock()
-            .map_err(|_| error::RustbreakErrorKind::Poison)?;
-        backend
-            .put_data(&ser)
-            .context(error::RustbreakErrorKind::Backend)?;
+        let mut backend = self.backend.lock().map_err(|_| ErrorKind::Poison)?;
+        backend.put_data(&ser).context(ErrorKind::Backend)?;
         Ok(())
     }
 
     /// Flush the data structure to the backend.
     pub fn save(&self) -> error::Result<()> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let data = self.data.read().map_err(|_| ErrorKind::Poison)?;
         self.save_data_locked(data)
     }
 
@@ -596,9 +570,7 @@ where
         let data = if load {
             self.load_get_data_lock()?
         } else {
-            self.data
-                .write()
-                .map_err(|_| error::RustbreakErrorKind::Poison)?
+            self.data.write().map_err(|_| ErrorKind::Poison)?
         };
         Ok(data.clone())
     }
@@ -607,10 +579,7 @@ where
     ///
     /// To save the data afterwards, call with `save` true.
     pub fn put_data(&self, new_data: Data, save: bool) -> error::Result<()> {
-        let mut data = self
-            .data
-            .write()
-            .map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let mut data = self.data.write().map_err(|_| ErrorKind::Poison)?;
         *data = new_data;
         if save {
             self.save_data_locked(data)
@@ -631,12 +600,8 @@ where
     /// Break a database into its individual parts.
     pub fn into_inner(self) -> error::Result<(Data, Back, DeSer)> {
         Ok((
-            self.data
-                .into_inner()
-                .map_err(|_| error::RustbreakErrorKind::Poison)?,
-            self.backend
-                .into_inner()
-                .map_err(|_| error::RustbreakErrorKind::Poison)?,
+            self.data.into_inner().map_err(|_| ErrorKind::Poison)?,
+            self.backend.into_inner().map_err(|_| ErrorKind::Poison)?,
             self.deser,
         ))
     }
@@ -685,10 +650,7 @@ where
     /// # }
     /// ```
     pub fn try_clone(&self) -> error::Result<MemoryDatabase<Data, DeSer>> {
-        let lock = self
-            .data
-            .read()
-            .map_err(|_| error::RustbreakErrorKind::Poison)?;
+        let lock = self.data.read().map_err(|_| ErrorKind::Poison)?;
 
         Ok(Database {
             data: RwLock::new(lock.clone()),
@@ -706,18 +668,107 @@ where
     Data: Serialize + DeserializeOwned + Clone + Send,
     DeSer: DeSerializer<Data> + Send + Sync + Clone,
 {
-    /// Create new [`FileDatabase`] from the file at [`Path`](std::path::Path).
-    pub fn from_path<S>(path: S, data: Data) -> error::Result<Self>
+    /// Create new [`FileDatabase`] from the file at [`Path`](std::path::Path),
+    /// and load the contents.
+    pub fn load_from_path<S>(path: S) -> error::Result<Self>
     where
         S: AsRef<std::path::Path>,
     {
-        let backend = FileBackend::open(path).context(error::RustbreakErrorKind::Backend)?;
+        let mut backend = FileBackend::from_path_or_fail(path)?;
+        let deser = DeSer::default();
+        let data = Self::load_from_backend(&mut backend, &deser)?;
 
-        Ok(Self {
+        let db = Self {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
-            deser: DeSer::default(),
-        })
+            deser,
+        };
+        Ok(db)
+    }
+
+    /// Load [`FileDatabase`] at `path` or initialise with `data`.
+    ///
+    /// Create new [`FileDatabase`] from the file at [`Path`](std::path::Path),
+    /// and load the contents. If the file does not exist, initialise with
+    /// `data`.
+    pub fn load_from_path_or<S>(path: S, data: Data) -> error::Result<Self>
+    where
+        S: AsRef<std::path::Path>,
+    {
+        let (mut backend, exists) = FileBackend::from_path_or_create(path)?;
+        let deser = DeSer::default();
+        if !exists {
+            let ser = deser.serialize(&data).context(ErrorKind::Serialization)?;
+            backend.put_data(&ser)?;
+        }
+
+        let db = Self {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser,
+        };
+
+        if exists {
+            db.load()?;
+        }
+
+        Ok(db)
+    }
+
+    /// Load [`FileDatabase`] at `path` or initialise with `closure`.
+    ///
+    /// Create new [`FileDatabase`] from the file at [`Path`](std::path::Path),
+    /// and load the contents. If the file does not exist, `closure` is
+    /// called and the database is initialised with it's return value.
+    pub fn load_from_path_or_else<S, C>(path: S, closure: C) -> error::Result<Self>
+    where
+        S: AsRef<std::path::Path>,
+        C: FnOnce() -> Data,
+    {
+        let (mut backend, exists) = FileBackend::from_path_or_create(path)?;
+        let deser = DeSer::default();
+        let data = if exists {
+            Self::load_from_backend(&mut backend, &deser)?
+        } else {
+            let data = closure();
+
+            let ser = deser.serialize(&data).context(ErrorKind::Serialization)?;
+            backend.put_data(&ser)?;
+
+            data
+        };
+
+        let db = Self {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser,
+        };
+        Ok(db)
+    }
+
+    /// Create [`FileDatabase`] at `path`. Initialise with `data` if the file
+    /// doesn't exist.
+    ///
+    /// Create new [`FileDatabase`] from the file at [`Path`](std::path::Path).
+    /// Contents are not loaded. If the file does not exist, it is
+    /// initialised with `data`. Frontend is always initialised with `data`.
+    pub fn create_at_path<S>(path: S, data: Data) -> error::Result<Self>
+    where
+        S: AsRef<std::path::Path>,
+    {
+        let (mut backend, exists) = FileBackend::from_path_or_create(path)?;
+        let deser = DeSer::default();
+        if !exists {
+            let ser = deser.serialize(&data).context(ErrorKind::Serialization)?;
+            backend.put_data(&ser)?;
+        }
+
+        let db = Self {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser,
+        };
+        Ok(db)
     }
 
     /// Create new [`FileDatabase`] from a file.
@@ -732,6 +783,24 @@ where
     }
 }
 
+impl<Data, DeSer> Database<Data, FileBackend, DeSer>
+where
+    Data: Serialize + DeserializeOwned + Clone + Send + Default,
+    DeSer: DeSerializer<Data> + Send + Sync + Clone,
+{
+    /// Load [`FileDatabase`] at `path` or initialise with `Data::default()`.
+    ///
+    /// Create new [`FileDatabase`] from the file at [`Path`](std::path::Path),
+    /// and load the contents. If the file does not exist, initialise with
+    /// `Data::default`.
+    pub fn load_from_path_or_default<S>(path: S) -> error::Result<Self>
+    where
+        S: AsRef<std::path::Path>,
+    {
+        Self::load_from_path_or(path, Data::default())
+    }
+}
+
 /// A database backed by a file, using atomic saves.
 pub type PathDatabase<D, DS> = Database<D, PathBackend, DS>;
 
@@ -740,21 +809,112 @@ where
     Data: Serialize + DeserializeOwned + Clone + Send,
     DeSer: DeSerializer<Data> + Send + Sync + Clone,
 {
-    /// Create new [`PathDatabase`] from a [`Path`](std::path::Path).
-    pub fn from_path<S>(path: S, data: Data) -> error::Result<Self>
-    where
-        S: ToOwned<Owned = std::path::PathBuf>,
-        std::path::PathBuf: std::borrow::Borrow<S>,
-    {
-        #[allow(clippy::redundant_clone)] // false positive
-        let backend =
-            PathBackend::open(path.to_owned()).context(error::RustbreakErrorKind::Backend)?;
+    /// Create new [`PathDatabase`] from the file at [`Path`](std::path::Path),
+    /// and load the contents.
+    pub fn load_from_path(path: PathBuf) -> error::Result<Self> {
+        let mut backend = PathBackend::from_path_or_fail(path)?;
+        let deser = DeSer::default();
+        let data = Self::load_from_backend(&mut backend, &deser)?;
 
-        Ok(Self {
+        let db = Self {
             data: RwLock::new(data),
             backend: Mutex::new(backend),
-            deser: DeSer::default(),
-        })
+            deser,
+        };
+        Ok(db)
+    }
+
+    /// Load [`PathDatabase`] at `path` or initialise with `data`.
+    ///
+    /// Create new [`PathDatabase`] from the file at [`Path`](std::path::Path),
+    /// and load the contents. If the file does not exist, initialise with
+    /// `data`.
+    pub fn load_from_path_or(path: PathBuf, data: Data) -> error::Result<Self> {
+        let (mut backend, exists) = PathBackend::from_path_or_create(path)?;
+        let deser = DeSer::default();
+        if !exists {
+            let ser = deser.serialize(&data).context(ErrorKind::Serialization)?;
+            backend.put_data(&ser)?;
+        }
+
+        let db = Self {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser,
+        };
+
+        if exists {
+            db.load()?;
+        }
+
+        Ok(db)
+    }
+
+    /// Load [`PathDatabase`] at `path` or initialise with `closure`.
+    ///
+    /// Create new [`PathDatabase`] from the file at [`Path`](std::path::Path),
+    /// and load the contents. If the file does not exist, `closure` is
+    /// called and the database is initialised with it's return value.
+    pub fn load_from_path_or_else<C>(path: PathBuf, closure: C) -> error::Result<Self>
+    where
+        C: FnOnce() -> Data,
+    {
+        let (mut backend, exists) = PathBackend::from_path_or_create(path)?;
+        let deser = DeSer::default();
+        let data = if exists {
+            Self::load_from_backend(&mut backend, &deser)?
+        } else {
+            let data = closure();
+
+            let ser = deser.serialize(&data).context(ErrorKind::Serialization)?;
+            backend.put_data(&ser)?;
+
+            data
+        };
+
+        let db = Self {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser,
+        };
+        Ok(db)
+    }
+
+    /// Create [`PathDatabase`] at `path`. Initialise with `data` if the file
+    /// doesn't exist.
+    ///
+    /// Create new [`PathDatabase`] from the file at [`Path`](std::path::Path).
+    /// Contents are not loaded. If the file does not exist, it is
+    /// initialised with `data`. Frontend is always initialised with `data`.
+    pub fn create_at_path(path: PathBuf, data: Data) -> error::Result<Self> {
+        let (mut backend, exists) = PathBackend::from_path_or_create(path)?;
+        let deser = DeSer::default();
+        if !exists {
+            let ser = deser.serialize(&data).context(ErrorKind::Serialization)?;
+            backend.put_data(&ser)?;
+        }
+
+        let db = Self {
+            data: RwLock::new(data),
+            backend: Mutex::new(backend),
+            deser,
+        };
+        Ok(db)
+    }
+}
+
+impl<Data, DeSer> Database<Data, PathBackend, DeSer>
+where
+    Data: Serialize + DeserializeOwned + Clone + Send + Default,
+    DeSer: DeSerializer<Data> + Send + Sync + Clone,
+{
+    /// Load [`PathDatabase`] at `path` or initialise with `Data::default()`.
+    ///
+    /// Create new [`PathDatabase`] from the file at [`Path`](std::path::Path),
+    /// and load the contents. If the file does not exist, initialise with
+    /// `Data::default`.
+    pub fn load_from_path_or_default(path: PathBuf) -> error::Result<Self> {
+        Self::load_from_path_or(path, Data::default())
     }
 }
 
@@ -982,7 +1142,7 @@ mod tests {
                 panic!("Panic should be catched")
             })
             .expect_err("Did not error on panic in safe write!");
-        assert_eq!(crate::error::RustbreakErrorKind::WritePanic, err.kind());
+        assert_eq!(ErrorKind::WritePanic, err.kind());
 
         assert_eq!(
             "Hello World",
