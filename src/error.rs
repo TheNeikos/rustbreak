@@ -74,3 +74,25 @@ impl From<Context<RustbreakErrorKind>> for RustbreakError {
 
 /// A simple type alias for errors
 pub type Result<T> = std::result::Result<T, RustbreakError>;
+
+#[cfg(test)]
+mod tests {
+    use super::{RustbreakError, RustbreakErrorKind};
+    use failure::Context;
+    use std::any::Any;
+
+    #[test]
+    fn static_errorkind_impl_any() {
+        let err = RustbreakErrorKind::Backend;
+        let boxed: Box<dyn Any> = Box::new(err);
+        assert!(boxed.is::<RustbreakErrorKind>());
+    }
+
+    #[test]
+    fn static_error_impl_any() {
+        let context = RustbreakErrorKind::Serialization;
+        let err: RustbreakError = Context::new(context).into();
+        let boxed: Box<dyn Any> = Box::new(err);
+        assert!(boxed.is::<RustbreakError>());
+    }
+}

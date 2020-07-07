@@ -48,7 +48,7 @@ fn do_main() -> Result<(), failure::Error> {
 
     let db = db
         .with_deser(Yaml)
-        .with_backend(FileBackend::open("test.yml")?);
+        .with_backend(FileBackend::from_path_or_create("test.yml").map(|p| p.0)?);
     db.save()?;
 
     Ok(())

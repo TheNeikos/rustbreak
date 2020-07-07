@@ -91,21 +91,6 @@ impl Backend for FileBackend {
 }
 
 impl FileBackend {
-    /// Opens a new [`FileBackend`] for a given path, will create it if the file
-    /// doesn't exist.
-    pub fn open<P: AsRef<std::path::Path>>(path: P) -> error::Result<Self> {
-        use std::fs::OpenOptions;
-
-        Ok(Self(
-            OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .open(path)
-                .context(ErrorKind::Backend)?,
-        ))
-    }
-
     /// Use an already open [`File`](std::fs::File) as the backend.
     #[must_use]
     pub fn from_file(file: std::fs::File) -> Self {
@@ -201,8 +186,9 @@ impl Backend for MemoryBackend {
 #[cfg(test)]
 mod tests {
     use super::{Backend, FileBackend, MemoryBackend};
+    use failure::Fail;
     use std::io::{Read, Seek, SeekFrom};
-    use tempfile;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_memory_backend() {
@@ -230,9 +216,11 @@ mod tests {
 
     #[test]
     #[cfg_attr(miri, ignore)]
-    fn test_file_backend_open_existing() {
-        let file = tempfile::NamedTempFile::new().expect("could not create temporary file");
-        let mut backend = FileBackend::open(file.path()).expect("could not create backend");
+    fn test_file_backend_from_path_existing() {
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let (mut backend, existed) = FileBackend::from_path_or_create(file.path().to_owned())
+            .expect("could not create backend");
+        assert!(existed);
         let data = [4, 5, 1, 6, 8, 1];
 
         backend.put_data(&data).expect("could not put data");
@@ -241,15 +229,47 @@ mod tests {
 
     #[test]
     #[cfg_attr(miri, ignore)]
-    fn test_file_backend_open_new() {
+    fn test_file_backend_from_path_new() {
         let dir = tempfile::tempdir().expect("could not create temporary directory");
         let mut file_path = dir.path().to_owned();
-        file_path.push("rustbreak_file_db.db");
-        let mut backend = FileBackend::open(file_path).expect("could not create backend");
+        file_path.push("rustbreak_path_db.db");
+        let (mut backend, existed) =
+            FileBackend::from_path_or_create(file_path).expect("could not create backend");
+        assert!(!existed);
         let data = [4, 5, 1, 6, 8, 1];
 
         backend.put_data(&data).expect("could not put data");
         assert_eq!(backend.get_data().expect("could not get data"), data);
+        dir.close().expect("Error while deleting temp directory!");
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_file_backend_from_path_nofail() {
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let file_path = file.path().to_owned();
+        let mut backend = FileBackend::from_path_or_fail(file_path).expect("should not fail");
+        let data = [4, 5, 1, 6, 8, 1];
+
+        backend.put_data(&data).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data);
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_file_backend_from_path_fail_notfound() {
+        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_path_db.db");
+        let err =
+            FileBackend::from_path_or_fail(file_path).expect_err("should fail with file not found");
+        assert_eq!(crate::error::RustbreakErrorKind::Backend, err.kind());
+        let io_err = err
+            .cause()
+            .expect("error has no cause")
+            .downcast_ref::<std::io::Error>()
+            .expect("error is not an io error");
+        assert_eq!(std::io::ErrorKind::NotFound, io_err.kind());
         dir.close().expect("Error while deleting temp directory!");
     }
 
