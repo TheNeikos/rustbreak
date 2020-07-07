@@ -797,7 +797,7 @@ where
     where
         S: AsRef<std::path::Path>,
     {
-        Self::load_from_path_or(path, Data::default())
+        Self::load_from_path_or_else(path, Data::default)
     }
 }
 
@@ -914,7 +914,7 @@ where
     /// and load the contents. If the file does not exist, initialise with
     /// `Data::default`.
     pub fn load_from_path_or_default(path: PathBuf) -> error::Result<Self> {
-        Self::load_from_path_or(path, Data::default())
+        Self::load_from_path_or_else(path, Data::default)
     }
 }
 
@@ -1027,9 +1027,11 @@ where
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use tempfile::NamedTempFile;
 
     type TestData = HashMap<usize, String>;
-    type TestDb = MemoryDatabase<TestData, crate::deser::Ron>;
+    type TestDb<B> = Database<TestData, B, crate::deser::Ron>;
+    type TestMemDb = TestDb<MemoryBackend>;
 
     fn test_data() -> TestData {
         let mut data = HashMap::new();
@@ -1038,9 +1040,18 @@ mod tests {
         data
     }
 
+    /// Used to test that `Default::default` isn't called.
+    #[derive(Clone, Debug, Serialize, serde::Deserialize)]
+    struct PanicDefault;
+    impl Default for PanicDefault {
+        fn default() -> Self {
+            panic!("`default` was called but should not")
+        }
+    }
+
     #[test]
     fn create_db_and_read() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         assert_eq!(
             "Hello World",
             db.read(|d| d.get(&1).cloned())
@@ -1057,7 +1068,7 @@ mod tests {
 
     #[test]
     fn write_twice() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         db.write(|d| d.insert(3, "Write to db".to_string()))
             .expect("Rustbreak write error");
         db.write(|d| d.insert(3, "Second write".to_string()))
@@ -1084,7 +1095,7 @@ mod tests {
 
     #[test]
     fn save_load() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         db.save().expect("Rustbreak save error");
         db.write(|d| d.clear()).expect("Rustbreak write error");
         db.load().expect("Rustbreak load error");
@@ -1104,7 +1115,7 @@ mod tests {
 
     #[test]
     fn writesafe_twice() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         db.write_safe(|d| {
             d.insert(3, "Write to db".to_string());
         })
@@ -1135,7 +1146,7 @@ mod tests {
 
     #[test]
     fn writesafe_panic() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         let err = db
             .write_safe(|d| {
                 d.clear();
@@ -1160,7 +1171,7 @@ mod tests {
 
     #[test]
     fn borrow_data_twice() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         let readlock1 = db.borrow_data().expect("Rustbreak readlock error");
         let readlock2 = db.borrow_data().expect("Rustbreak readlock error");
         assert_eq!(
@@ -1188,7 +1199,7 @@ mod tests {
 
     #[test]
     fn borrow_data_mut() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         let mut writelock = db.borrow_data_mut().expect("Rustbreak writelock error");
         writelock.insert(3, "Write to db".to_string());
         drop(writelock);
@@ -1214,14 +1225,14 @@ mod tests {
 
     #[test]
     fn get_data_mem() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         let data = db.get_data(false).expect("could not get data");
         assert_eq!(test_data(), data);
     }
 
     #[test]
     fn get_data_load() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         db.save().expect("Rustbreak save error");
         db.write(|d| d.clear()).expect("Rustbreak write error");
         let data = db.get_data(true).expect("could not get data");
@@ -1230,7 +1241,7 @@ mod tests {
 
     #[test]
     fn put_data_mem() {
-        let db = TestDb::memory(TestData::default()).expect("Could not create database");
+        let db = TestMemDb::memory(TestData::default()).expect("Could not create database");
         db.put_data(test_data(), false).expect("could not put data");
         assert_eq!(
             "Hello World",
@@ -1250,7 +1261,7 @@ mod tests {
 
     #[test]
     fn put_data_save() {
-        let db = TestDb::memory(TestData::default()).expect("Could not create database");
+        let db = TestMemDb::memory(TestData::default()).expect("Could not create database");
         db.put_data(test_data(), true).expect("could not put data");
         db.load().expect("Rustbreak load error");
         assert_eq!(
@@ -1271,7 +1282,7 @@ mod tests {
 
     #[test]
     fn save_and_into_inner() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         db.save().expect("Rustbreak save error");
         let (data, mut backend, _) = db
             .into_inner()
@@ -1285,7 +1296,7 @@ mod tests {
 
     #[test]
     fn clone() {
-        let db1 = TestDb::memory(test_data()).expect("Could not create database");
+        let db1 = TestMemDb::memory(test_data()).expect("Could not create database");
         let readlock1 = db1.borrow_data().expect("Rustbreak readlock error");
         let db2 = db1.try_clone().expect("Rustbreak clone error");
         let readlock2 = db2.borrow_data().expect("Rustbreak readlock error");
@@ -1310,9 +1321,53 @@ mod tests {
     /// save while holding a readlock.
     #[test]
     fn save_holding_readlock() {
-        let db = TestDb::memory(test_data()).expect("Could not create database");
+        let db = TestMemDb::memory(test_data()).expect("Could not create database");
         let readlock = db.borrow_data().expect("Rustbreak readlock error");
         db.save().expect("Rustbreak save error");
         assert_eq!(test_data(), *readlock);
+    }
+
+    /// Test that if the file already exists, the closure won't be called.
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn pathdb_from_path_or_else_existing_nocall() {
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let path = file.path().to_owned();
+        let _ = TestDb::<PathBackend>::load_from_path_or_else(path, || {
+            panic!("closure called while file existed")
+        });
+    }
+
+    /// Test that if the file already exists, the closure won't be called.
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn filedb_from_path_or_else_existing_nocall() {
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let path = file.path();
+        let _ = TestDb::<FileBackend>::load_from_path_or_else(path, || {
+            panic!("closure called while file existed")
+        });
+    }
+
+    /// Test that if the file already exists, `default` won't be called.
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn pathdb_from_path_or_default_existing_nocall() {
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let path = file.path().to_owned();
+        let _ = Database::<PanicDefault, PathBackend, crate::deser::Ron>::load_from_path_or_default(
+            path,
+        );
+    }
+
+    /// Test that if the file already exists, the closure won't be called.
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn filedb_from_path_or_default_existing_nocall() {
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let path = file.path();
+        let _ = Database::<PanicDefault, FileBackend, crate::deser::Ron>::load_from_path_or_default(
+            path,
+        );
     }
 }
