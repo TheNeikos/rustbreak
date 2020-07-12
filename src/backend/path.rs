@@ -103,7 +103,7 @@ impl Backend for PathBackend {
 mod tests {
     use super::{Backend, PathBackend};
     use failure::Fail;
-    //use std::any::Any;
+    use std::io::Write;
     use tempfile::NamedTempFile;
 
     #[test]
@@ -162,6 +162,44 @@ mod tests {
             .downcast_ref::<std::io::Error>()
             .expect("error is not an io error");
         assert_eq!(std::io::ErrorKind::NotFound, io_err.kind());
+        dir.close().expect("Error while deleting temp directory!");
+    }
+
+    // If the file already exists, the closure shouldn't be called.
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_path_backend_create_and_existing_nocall() {
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let mut backend = PathBackend::from_path_or_create_and(file.path().to_owned(), |_| {
+            panic!("Closure called but file already existed");
+        })
+        .expect("could not create backend");
+        let data = [4, 5, 1, 6, 8, 1];
+
+        backend.put_data(&data).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data);
+    }
+
+    // If the file does not yet exist, the closure should be called.
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_path_backend_create_and_new() {
+        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_path_db.db");
+        let mut backend = PathBackend::from_path_or_create_and(file_path, |f| {
+            f.write_all(b"this is a new file")
+                .expect("could not write to file")
+        })
+        .expect("could not create backend");
+        assert_eq!(
+            backend.get_data().expect("could not get data"),
+            b"this is a new file"
+        );
+        let data = [4, 5, 1, 6, 8, 1];
+
+        backend.put_data(&data).expect("could not put data");
+        assert_eq!(backend.get_data().expect("could not get data"), data);
         dir.close().expect("Error while deleting temp directory!");
     }
 }
