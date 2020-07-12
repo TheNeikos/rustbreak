@@ -1026,6 +1026,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use failure::Fail;
     use std::collections::HashMap;
     use tempfile::NamedTempFile;
 
@@ -1369,5 +1370,131 @@ mod tests {
         let _ = Database::<PanicDefault, FileBackend, crate::deser::Ron>::load_from_path_or_default(
             path,
         );
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn pathdb_from_path_or_new() {
+        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_path_db.db");
+        let db = TestDb::<PathBackend>::load_from_path_or(file_path, test_data())
+            .expect("could not load from path");
+        db.load().expect("could not load");
+        let readlock = db.borrow_data().expect("Rustbreak readlock error");
+        assert_eq!(test_data(), *readlock);
+        dir.close().expect("Error while deleting temp directory!");
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn pathdb_from_path_or_else_new() {
+        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_path_db.db");
+        let db = TestDb::<PathBackend>::load_from_path_or_else(file_path, test_data)
+            .expect("could not load from path");
+        db.load().expect("could not load");
+        let readlock = db.borrow_data().expect("Rustbreak readlock error");
+        assert_eq!(test_data(), *readlock);
+        dir.close().expect("Error while deleting temp directory!");
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn filedb_from_path_or_new() {
+        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_path_db.db");
+        let db = TestDb::<FileBackend>::load_from_path_or(file_path, test_data())
+            .expect("could not load from path");
+        db.load().expect("could not load");
+        let readlock = db.borrow_data().expect("Rustbreak readlock error");
+        assert_eq!(test_data(), *readlock);
+        dir.close().expect("Error while deleting temp directory!");
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn filedb_from_path_or_else_new() {
+        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_path_db.db");
+        let db = TestDb::<FileBackend>::load_from_path_or_else(file_path, test_data)
+            .expect("could not load from path");
+        db.load().expect("could not load");
+        let readlock = db.borrow_data().expect("Rustbreak readlock error");
+        assert_eq!(test_data(), *readlock);
+        dir.close().expect("Error while deleting temp directory!");
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn pathdb_from_path_new_fail() {
+        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_path_db.db");
+        let err = TestDb::<PathBackend>::load_from_path(file_path)
+            .expect_err("should fail with file not found");
+        assert_eq!(ErrorKind::Backend, err.kind());
+        let io_err = err
+            .cause()
+            .expect("error has no cause")
+            .downcast_ref::<std::io::Error>()
+            .expect("error is not an io error");
+        assert_eq!(std::io::ErrorKind::NotFound, io_err.kind());
+
+        dir.close().expect("Error while deleting temp directory!");
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn filedb_from_path_new_fail() {
+        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let mut file_path = dir.path().to_owned();
+        file_path.push("rustbreak_path_db.db");
+        let err = TestDb::<FileBackend>::load_from_path(file_path)
+            .expect_err("should fail with file not found");
+        assert_eq!(ErrorKind::Backend, err.kind());
+        let io_err = err
+            .cause()
+            .expect("error has no cause")
+            .downcast_ref::<std::io::Error>()
+            .expect("error is not an io error");
+        assert_eq!(std::io::ErrorKind::NotFound, io_err.kind());
+
+        dir.close().expect("Error while deleting temp directory!");
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn pathdb_from_path_existing() {
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let path = file.path().to_owned();
+        // initialise the file
+        let db = TestDb::<PathBackend>::create_at_path(path.clone(), test_data())
+            .expect("could not create db");
+        db.save().expect("could not save db");
+        drop(db);
+        // test that loading now works
+        let db = TestDb::<PathBackend>::load_from_path(path).expect("could not load");
+        let readlock = db.borrow_data().expect("Rustbreak readlock error");
+        assert_eq!(test_data(), *readlock);
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn filedb_from_path_existing() {
+        let file = NamedTempFile::new().expect("could not create temporary file");
+        let path = file.path();
+        // initialise the file
+        let db =
+            TestDb::<FileBackend>::create_at_path(path, test_data()).expect("could not create db");
+        db.save().expect("could not save db");
+        drop(db);
+        // test that loading now works
+        let db = TestDb::<FileBackend>::load_from_path(path).expect("could not load");
+        let readlock = db.borrow_data().expect("Rustbreak readlock error");
+        assert_eq!(test_data(), *readlock);
     }
 }
