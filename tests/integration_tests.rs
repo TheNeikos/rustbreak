@@ -108,7 +108,7 @@ fn create_filedb<S: DeSerializer<Data> + Debug>() -> FileDatabase<Data, S> {
 
 fn create_filedb_from_path<S: DeSerializer<Data> + Debug>() -> FileDatabase<Data, S> {
     let file = tempfile::NamedTempFile::new().expect("could not create temporary file");
-    FileDatabase::from_path(file.path(), Data::default()).expect("could not create database")
+    FileDatabase::create_at_path(file.path(), Data::default()).expect("could not create database")
 }
 
 fn create_memdb<S: DeSerializer<Data> + Debug>() -> MemoryDatabase<Data, S> {
@@ -125,7 +125,7 @@ fn create_mmapdb_with_size<S: DeSerializer<Data> + Debug>(size: usize) -> MmapDa
 
 fn create_pathdb<S: DeSerializer<Data> + Debug>() -> PathDatabase<Data, S> {
     let file = tempfile::NamedTempFile::new().expect("could not create temporary file");
-    PathDatabase::from_path(file.path().to_owned(), Data::default())
+    PathDatabase::create_at_path(file.path().to_owned(), Data::default())
         .expect("could not create database")
 }
 

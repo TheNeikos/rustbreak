@@ -23,7 +23,7 @@ type DB = FileDatabase<Config, Ron>;
 
 lazy_static! {
     static ref CONFIG: DB = {
-        let db = FileDatabase::from_path("/tmp/config.ron", Config::default())
+        let db = FileDatabase::load_from_path_or_default("/tmp/config.ron")
             .expect("Create database from path");
         db.load().expect("Config to load");
         db
