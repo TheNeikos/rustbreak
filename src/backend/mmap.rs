@@ -1,5 +1,3 @@
-use failure::ResultExt;
-
 use super::Backend;
 
 use crate::error;
@@ -32,11 +30,11 @@ impl Mmap {
     }
 
     /// Copies data to mmap and modifies data's end cursor.
-    fn write(&mut self, data: &[u8]) -> Result<(), failure::Error> {
+    fn write(&mut self, data: &[u8]) -> error::BackendResult<()> {
         if data.len() > self.len {
-            return Err(failure::err_msg(
-                "Unexpected write beyond mmap's backend capacity. This is a rustbreak's bug",
-            ));
+            return Err(error::BackendError::Internal(format!(
+                "Unexpected write beyond mmap's backend capacity."
+            )));
         }
         self.end = data.len();
         self.as_mut_slice().copy_from_slice(data);
@@ -59,7 +57,7 @@ impl Mmap {
     }
 }
 
-/// A backend that uses anonymous mmap.
+/// A backend that uses an nonymous mmap.
 ///
 /// The `Backend` automatically creates bigger map
 /// on demand using following strategy:
@@ -77,38 +75,32 @@ pub struct MmapStorage {
 
 impl MmapStorage {
     /// Creates new storage with 1024 bytes.
-    pub fn new() -> error::Result<Self> {
+    pub fn new() -> error::BackendResult<Self> {
         Self::with_size(1024)
     }
 
     /// Creates new storage with custom size.
-    pub fn with_size(len: usize) -> error::Result<Self> {
-        let mmap = Mmap::new(len).context(error::RustbreakErrorKind::Backend)?;
+    pub fn with_size(len: usize) -> error::BackendResult<Self> {
+        let mmap = Mmap::new(len)?;
 
         Ok(Self { mmap })
     }
 }
 
 impl Backend for MmapStorage {
-    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+    fn get_data(&mut self) -> error::BackendResult<Vec<u8>> {
         let mmap = self.mmap.as_slice();
         let mut buffer = Vec::with_capacity(mmap.len());
         buffer.extend_from_slice(mmap);
         Ok(buffer)
     }
 
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+    fn put_data(&mut self, data: &[u8]) -> error::BackendResult<()> {
         if self.mmap.len < data.len() {
-            self.mmap
-                .resize_no_copy(data.len())
-                .context(error::RustbreakErrorKind::Backend)?;
+            self.mmap.resize_no_copy(data.len())?;
         }
-        self.mmap
-            .write(data)
-            .context(error::RustbreakErrorKind::Backend)?;
-        self.mmap
-            .flush()
-            .context(error::RustbreakErrorKind::Backend)?;
+        self.mmap.write(data)?;
+        self.mmap.flush()?;
         Ok(())
     }
 }

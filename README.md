@@ -41,12 +41,11 @@ features = ["ron_enc"] # You can also use "yaml_enc" or "bin_enc"
 ```
 
 ```rust
-extern crate failure;
 extern crate rustbreak;
 use std::collections::HashMap;
 use rustbreak::{MemoryDatabase, deser::Ron};
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> rustbreak::Result<()> {
     let db = MemoryDatabase::<HashMap<u32, String>, Ron>::memory(HashMap::new())?;
 
     println!("Writing to Database");
