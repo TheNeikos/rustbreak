@@ -10,9 +10,7 @@
 //! Implementing your own Backend should be straightforward. Check the `Backend`
 //! documentation for details.
 
-use failure::ResultExt;
-
-use crate::error::{self, RustbreakErrorKind as ErrorKind};
+use crate::error;
 
 /// The Backend Trait.
 ///
@@ -21,31 +19,31 @@ use crate::error::{self, RustbreakErrorKind as ErrorKind};
 /// same dataset.
 pub trait Backend {
     /// Read the all data from the backend.
-    fn get_data(&mut self) -> error::Result<Vec<u8>>;
+    fn get_data(&mut self) -> error::BackendResult<Vec<u8>>;
 
     /// Write the whole slice to the backend.
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()>;
+    fn put_data(&mut self, data: &[u8]) -> error::BackendResult<()>;
 }
 
 impl Backend for Box<dyn Backend> {
-    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+    fn get_data(&mut self) -> error::BackendResult<Vec<u8>> {
         use std::ops::DerefMut;
         self.deref_mut().get_data()
     }
 
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+    fn put_data(&mut self, data: &[u8]) -> error::BackendResult<()> {
         use std::ops::DerefMut;
         self.deref_mut().put_data(data)
     }
 }
 
 impl<T: Backend> Backend for Box<T> {
-    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+    fn get_data(&mut self) -> error::BackendResult<Vec<u8>> {
         use std::ops::DerefMut;
         self.deref_mut().get_data()
     }
 
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+    fn put_data(&mut self, data: &[u8]) -> error::BackendResult<()> {
         use std::ops::DerefMut;
         self.deref_mut().put_data(data)
     }
@@ -64,28 +62,22 @@ pub use path::PathBackend;
 pub struct FileBackend(std::fs::File);
 
 impl Backend for FileBackend {
-    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+    fn get_data(&mut self) -> error::BackendResult<Vec<u8>> {
         use std::io::{Read, Seek, SeekFrom};
 
         let mut buffer = vec![];
-        self.0
-            .seek(SeekFrom::Start(0))
-            .context(ErrorKind::Backend)?;
-        self.0
-            .read_to_end(&mut buffer)
-            .context(ErrorKind::Backend)?;
+        self.0.seek(SeekFrom::Start(0))?;
+        self.0.read_to_end(&mut buffer)?;
         Ok(buffer)
     }
 
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+    fn put_data(&mut self, data: &[u8]) -> error::BackendResult<()> {
         use std::io::{Seek, SeekFrom, Write};
 
-        self.0
-            .seek(SeekFrom::Start(0))
-            .context(ErrorKind::Backend)?;
-        self.0.set_len(0).context(ErrorKind::Backend)?;
-        self.0.write_all(data).context(ErrorKind::Backend)?;
-        self.0.sync_all().context(ErrorKind::Backend)?;
+        self.0.seek(SeekFrom::Start(0))?;
+        self.0.set_len(0)?;
+        self.0.write_all(data)?;
+        self.0.sync_all()?;
         Ok(())
     }
 }
@@ -107,23 +99,19 @@ impl FileBackend {
 impl FileBackend {
     /// Opens a new [`FileBackend`] for a given path.
     /// Errors when the file doesn't yet exist.
-    pub fn from_path_or_fail<P: AsRef<std::path::Path>>(path: P) -> error::Result<Self> {
+    pub fn from_path_or_fail<P: AsRef<std::path::Path>>(path: P) -> error::BackendResult<Self> {
         use std::fs::OpenOptions;
 
-        Ok(Self(
-            OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(path)
-                .context(ErrorKind::Backend)?,
-        ))
+        Ok(Self(OpenOptions::new().read(true).write(true).open(path)?))
     }
 
     /// Opens a new [`FileBackend`] for a given path.
     /// Creates a file if it doesn't yet exist.
     ///
     /// Returns the [`FileBackend`] and whether the file already existed.
-    pub fn from_path_or_create<P: AsRef<std::path::Path>>(path: P) -> error::Result<(Self, bool)> {
+    pub fn from_path_or_create<P: AsRef<std::path::Path>>(
+        path: P,
+    ) -> error::BackendResult<(Self, bool)> {
         use std::fs::OpenOptions;
 
         let exists = path.as_ref().is_file();
@@ -133,8 +121,7 @@ impl FileBackend {
                     .read(true)
                     .write(true)
                     .create(true)
-                    .open(path)
-                    .context(ErrorKind::Backend)?,
+                    .open(path)?,
             ),
             exists,
         ))
@@ -142,7 +129,7 @@ impl FileBackend {
 
     /// Opens a new [`FileBackend`] for a given path.
     /// Creates a file if it doesn't yet exist, and calls `closure` with it.
-    pub fn from_path_or_create_and<P, C>(path: P, closure: C) -> error::Result<Self>
+    pub fn from_path_or_create_and<P, C>(path: P, closure: C) -> error::BackendResult<Self>
     where
         C: FnOnce(&mut std::fs::File),
         P: AsRef<std::path::Path>,
@@ -171,12 +158,12 @@ impl MemoryBackend {
 }
 
 impl Backend for MemoryBackend {
-    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+    fn get_data(&mut self) -> error::BackendResult<Vec<u8>> {
         println!("Returning data: {:?}", &self.0);
         Ok(self.0.clone())
     }
 
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+    fn put_data(&mut self, data: &[u8]) -> error::BackendResult<()> {
         println!("Writing data: {:?}", data);
         self.0 = data.to_owned();
         Ok(())
@@ -186,7 +173,6 @@ impl Backend for MemoryBackend {
 #[cfg(test)]
 mod tests {
     use super::{Backend, FileBackend, MemoryBackend};
-    use failure::Fail;
     use std::io::{Read, Seek, SeekFrom, Write};
     use tempfile::NamedTempFile;
 
@@ -263,13 +249,11 @@ mod tests {
         file_path.push("rustbreak_path_db.db");
         let err =
             FileBackend::from_path_or_fail(file_path).expect_err("should fail with file not found");
-        assert_eq!(crate::error::RustbreakErrorKind::Backend, err.kind());
-        let io_err = err
-            .cause()
-            .expect("error has no cause")
-            .downcast_ref::<std::io::Error>()
-            .expect("error is not an io error");
-        assert_eq!(std::io::ErrorKind::NotFound, io_err.kind());
+        if let crate::error::BackendError::Io(io_err) = &err {
+            assert_eq!(std::io::ErrorKind::NotFound, io_err.kind());
+        } else {
+            panic!("Wrong kind of error returned: {}", err);
+        };
         dir.close().expect("Error while deleting temp directory!");
     }
 

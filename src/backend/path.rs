@@ -7,8 +7,6 @@
 
 use super::Backend;
 use crate::error;
-use crate::error::RustbreakErrorKind as ErrorKind;
-use failure::ResultExt;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
@@ -25,11 +23,8 @@ pub struct PathBackend {
 impl PathBackend {
     /// Opens a new [`PathBackend`] for a given path.
     /// Errors when the file doesn't yet exist.
-    pub fn from_path_or_fail(path: PathBuf) -> error::Result<Self> {
-        OpenOptions::new()
-            .read(true)
-            .open(path.as_path())
-            .context(ErrorKind::Backend)?;
+    pub fn from_path_or_fail(path: PathBuf) -> error::BackendResult<Self> {
+        OpenOptions::new().read(true).open(path.as_path())?;
         Ok(Self { path })
     }
 
@@ -37,19 +32,18 @@ impl PathBackend {
     /// Creates a file if it doesn't yet exist.
     ///
     /// Returns the [`PathBackend`] and whether the file already existed.
-    pub fn from_path_or_create(path: PathBuf) -> error::Result<(Self, bool)> {
+    pub fn from_path_or_create(path: PathBuf) -> error::BackendResult<(Self, bool)> {
         let exists = path.as_path().is_file();
         OpenOptions::new()
             .write(true)
             .create(true)
-            .open(path.as_path())
-            .context(ErrorKind::Backend)?;
+            .open(path.as_path())?;
         Ok((Self { path }, exists))
     }
 
     /// Opens a new [`PathBackend`] for a given path.
     /// Creates a file if it doesn't yet exist, and calls `closure` with it.
-    pub fn from_path_or_create_and<C>(path: PathBuf, closure: C) -> error::Result<Self>
+    pub fn from_path_or_create_and<C>(path: PathBuf, closure: C) -> error::BackendResult<Self>
     where
         C: FnOnce(&mut std::fs::File),
     {
@@ -58,8 +52,7 @@ impl PathBackend {
             .read(true)
             .write(true)
             .create(true)
-            .open(path.as_path())
-            .context(ErrorKind::Backend)?;
+            .open(path.as_path())?;
         if !exists {
             closure(&mut file)
         }
@@ -68,15 +61,12 @@ impl PathBackend {
 }
 
 impl Backend for PathBackend {
-    fn get_data(&mut self) -> error::Result<Vec<u8>> {
+    fn get_data(&mut self) -> error::BackendResult<Vec<u8>> {
         use std::io::Read;
 
-        let mut file = OpenOptions::new()
-            .read(true)
-            .open(self.path.as_path())
-            .context(ErrorKind::Backend)?;
+        let mut file = OpenOptions::new().read(true).open(self.path.as_path())?;
         let mut buffer = vec![];
-        file.read_to_end(&mut buffer).context(ErrorKind::Backend)?;
+        file.read_to_end(&mut buffer)?;
         Ok(buffer)
     }
 
@@ -84,17 +74,14 @@ impl Backend for PathBackend {
     ///
     /// This won't corrupt the existing database file if the program panics
     /// during the save.
-    fn put_data(&mut self, data: &[u8]) -> error::Result<()> {
+    fn put_data(&mut self, data: &[u8]) -> error::BackendResult<()> {
         use std::io::Write;
 
         #[allow(clippy::or_fun_call)] // `Path::new` is a zero cost conversion
-        let mut tempf = NamedTempFile::new_in(self.path.parent().unwrap_or(Path::new(".")))
-            .context(ErrorKind::Backend)?;
-        tempf.write_all(data).context(ErrorKind::Backend)?;
-        tempf.as_file().sync_all().context(ErrorKind::Backend)?;
-        tempf
-            .persist(self.path.as_path())
-            .context(ErrorKind::Backend)?;
+        let mut tempf = NamedTempFile::new_in(self.path.parent().unwrap_or(Path::new(".")))?;
+        tempf.write_all(data)?;
+        tempf.as_file().sync_all()?;
+        tempf.persist(self.path.as_path())?;
         Ok(())
     }
 }
@@ -102,7 +89,6 @@ impl Backend for PathBackend {
 #[cfg(test)]
 mod tests {
     use super::{Backend, PathBackend};
-    use failure::Fail;
     use std::io::Write;
     use tempfile::NamedTempFile;
 
@@ -155,13 +141,11 @@ mod tests {
         file_path.push("rustbreak_path_db.db");
         let err =
             PathBackend::from_path_or_fail(file_path).expect_err("should fail with file not found");
-        assert_eq!(crate::error::RustbreakErrorKind::Backend, err.kind());
-        let io_err = err
-            .cause()
-            .expect("error has no cause")
-            .downcast_ref::<std::io::Error>()
-            .expect("error is not an io error");
-        assert_eq!(std::io::ErrorKind::NotFound, io_err.kind());
+        if let crate::error::BackendError::Io(io_err) = &err {
+            assert_eq!(std::io::ErrorKind::NotFound, io_err.kind());
+        } else {
+            panic!("Wrong kind of error returned: {}", err);
+        };
         dir.close().expect("Error while deleting temp directory!");
     }
 

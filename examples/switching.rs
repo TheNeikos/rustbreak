@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate serde_derive;
-use failure;
 
 use rustbreak::deser::{Ron, Yaml};
 use rustbreak::{backend::FileBackend, FileDatabase};
@@ -17,7 +16,7 @@ struct Person {
     country: Country,
 }
 
-fn do_main() -> Result<(), failure::Error> {
+fn do_main() -> Result<(), rustbreak::RustbreakError> {
     use std::collections::HashMap;
 
     let db = FileDatabase::<HashMap<String, Person>, Ron>::load_from_path_or_default("test.ron")?;
@@ -56,7 +55,7 @@ fn do_main() -> Result<(), failure::Error> {
 
 fn main() {
     if let Err(e) = do_main() {
-        eprintln!("An error has occurred at: \n{}", e.backtrace());
+        eprintln!("An error has occurred at: \n{}", e);
         std::process::exit(1);
     }
 }
