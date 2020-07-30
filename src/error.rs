@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/// An error returned by a DeSer implementor
+/// An error returned by a `DeSer` implementor
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
+#[allow(clippy::empty_enum)] // This can occur when no desers have beeen enabled
 pub enum DeSerError {
     #[cfg(feature = "yaml_enc")]
     /// An error occured with Yaml
@@ -63,5 +64,5 @@ pub enum RustbreakError {
 pub type Result<T> = std::result::Result<T, RustbreakError>;
 /// The type alias used for backends
 pub type BackendResult<T> = std::result::Result<T, BackendError>;
-/// The type alias used for DeSers
+/// The type alias used for `DeSer`s
 pub type DeSerResult<T> = std::result::Result<T, DeSerError>;

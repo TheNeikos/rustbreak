@@ -449,7 +449,7 @@ where
     /// # }
     /// ```
     pub fn borrow_data<'a>(&'a self) -> error::Result<RwLockReadGuard<'a, Data>> {
-        self.data.read().map_err(|_| RustbreakError::Poison.into())
+        self.data.read().map_err(|_| RustbreakError::Poison)
     }
 
     /// Write lock the database and get access to the underlying struct.
@@ -501,7 +501,7 @@ where
     /// # }
     /// ```
     pub fn borrow_data_mut<'a>(&'a self) -> error::Result<RwLockWriteGuard<'a, Data>> {
-        self.data.write().map_err(|_| RustbreakError::Poison.into())
+        self.data.write().map_err(|_| RustbreakError::Poison)
     }
 
     /// Load data from backend and return this data.
