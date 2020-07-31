@@ -68,6 +68,8 @@ pub use self::bincode::Bincode;
 ///
 /// fn main() {}
 /// ```
+///
+/// **Important**: You can only return custom errors if the `other_errors` feature is enabled
 pub trait DeSerializer<T: Serialize + DeserializeOwned>:
     std::default::Default + Send + Sync + Clone
 {
