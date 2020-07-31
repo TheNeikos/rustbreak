@@ -19,8 +19,16 @@ pub enum DeSerError {
     /// An error occured with Bincode
     #[error("An error with Bincode occured")]
     Bincode(#[from] std::boxed::Box<bincode::ErrorKind>),
+    /// An internal error to Rustbreak occured
+    #[error("An internal error to rustbreak occured, please report it to the maintainers")]
+    Internal(String),
     #[cfg(feature = "other_errors")]
-    /// An error occured with Bincode
+    /// A dynamic error occured
+    ///
+    /// Most likely the custom `DeSer` implementation has thrown an error, consult its documentation
+    /// for more information
+    ///
+    /// **Important**: This can only be used if the `other_errors` feature is enabled
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -38,6 +46,15 @@ pub enum BackendError {
     /// An internal error to Rustbreak occured
     #[error("An internal error to rustbreak occured, please report it to the maintainers")]
     Internal(String),
+    #[cfg(feature = "other_errors")]
+    /// A dynamic error occured
+    ///
+    /// Most likely the custom `Backend` implementation has thrown an error, consult its documentation
+    /// for more information
+    ///
+    /// **Important**: This can only be used if the `other_errors` feature is enabled
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 /// The different kinds of errors that can be returned

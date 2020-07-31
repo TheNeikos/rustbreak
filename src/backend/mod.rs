@@ -17,6 +17,8 @@ use crate::error;
 /// It should always read and save in full the data that it is passed. This
 /// means that a write to the backend followed by a read __must__ return the
 /// same dataset.
+///
+/// **Important**: You can only return custom errors if the `other_errors` feature is enabled
 pub trait Backend {
     /// Read the all data from the backend.
     fn get_data(&mut self) -> error::BackendResult<Vec<u8>>;
