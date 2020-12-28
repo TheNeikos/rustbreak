@@ -328,11 +328,7 @@ where
     /// # extern crate rustbreak;
     /// # extern crate serde;
     /// # extern crate tempfile;
-    /// use rustbreak::{
-    ///     deser::Ron,
-    ///     error::RustbreakError,
-    ///     FileDatabase,
-    /// };
+    /// use rustbreak::{deser::Ron, error::RustbreakError, FileDatabase};
     ///
     /// #[derive(Debug, Serialize, Deserialize, Clone)]
     /// struct Data {
@@ -1010,6 +1006,7 @@ where
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use std::path::Path;
     use tempfile::NamedTempFile;
 
     type TestData = HashMap<usize, String>;
@@ -1448,16 +1445,19 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn pathdb_from_path_existing() {
         let file = NamedTempFile::new().expect("could not create temporary file");
-        let path = file.path().to_owned();
+        let tmppath = file.into_temp_path();
+        let path: &Path = tmppath.as_ref();
         // initialise the file
-        let db = TestDb::<PathBackend>::create_at_path(path.clone(), test_data())
+        let db = TestDb::<PathBackend>::create_at_path(path.to_owned(), test_data())
             .expect("could not create db");
         db.save().expect("could not save db");
         drop(db);
         // test that loading now works
-        let db = TestDb::<PathBackend>::load_from_path(path).expect("could not load");
+        let db = TestDb::<PathBackend>::load_from_path(path.to_owned()).expect("could not load");
         let readlock = db.borrow_data().expect("Rustbreak readlock error");
         assert_eq!(test_data(), *readlock);
+
+        tmppath.close().expect("could not delete temp file");
     }
 
     #[test]
