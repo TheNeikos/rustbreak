@@ -115,6 +115,12 @@ features = ["yaml_enc"]
 
 You can now use `rustbreak::deser::Yaml` as deserialization struct.
 
+🔥🔥
+__Warning__: Using this deserializer can trigger *Undefined Behaviour (UB)*. It
+is *strongly* recommended to *not* use this deserializer until these issues are
+fixed. See [tracking issue #87] for more details.
+🔥🔥
+
 ### Ron
 
 If you would like to use [`ron`](https://github.com/ron-rs/ron) you need to
@@ -143,3 +149,4 @@ You can now use `rustbreak::deser::Bincode` as deserialization struct.
 
 [doc]:http://neikos.me/rustbreak/rustbreak/index.html
 [Daybreak]:https://propublica.github.io/daybreak/
+[tracking issue #87]: https://github.com/TheNeikos/rustbreak/issues/87
