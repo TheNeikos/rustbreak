@@ -109,7 +109,7 @@ If you would like to use yaml you need to specify `yaml_enc` as a feature:
 
 ```toml
 [dependencies.rustbreak]
-version = "1"
+version = "2"
 features = ["yaml_enc"]
 ```
 
@@ -122,7 +122,7 @@ specify `ron_enc` as a feature:
 
 ```toml
 [dependencies.rustbreak]
-version = "1"
+version = "2"
 features = ["ron_enc"]
 ```
 
@@ -134,7 +134,7 @@ If you would like to use bincode you need to specify `bin_enc` as a feature:
 
 ```toml
 [dependencies.rustbreak]
-version = "1"
+version = "2"
 features = ["bin_enc"]
 ```
 
