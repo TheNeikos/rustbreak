@@ -21,6 +21,15 @@ arbitrary data to it.
 In Ruby there is [Daybreak] however for Rust there was no similar crate, until
 now!
 
+When not to use it
+------------------
+
+Rustbreak makes several trade-offs to be easy to use and extend, so knowing of these drawbacks is important if 
+you wish to use the library:
+
+- The Database needs to fit into memory (Rustbreak cannot do partial loads/saves, so if the Database exceeds your available memory you will run OOM)
+- Not all backends support atomic saves, so if your program crashes while it is saving you might save incomplete data (Notably only `PathBackend` supports atomic saves)
+
 Features
 --------
 
