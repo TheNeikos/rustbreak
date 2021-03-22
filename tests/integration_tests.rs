@@ -123,10 +123,12 @@ fn create_mmapdb_with_size<S: DeSerializer<Data> + Debug>(size: usize) -> MmapDa
     MmapDatabase::mmap_with_size(Data::default(), size).expect("could not create database")
 }
 
-fn create_pathdb<S: DeSerializer<Data> + Debug>() -> PathDatabase<Data, S> {
+fn create_pathdb<S: DeSerializer<Data> + Debug>() -> (PathDatabase<Data, S>, tempfile::TempPath) {
     let file = tempfile::NamedTempFile::new().expect("could not create temporary file");
-    PathDatabase::create_at_path(file.path().to_owned(), Data::default())
-        .expect("could not create database")
+    let db = PathDatabase::create_at_path(file.path().to_owned(), Data::default())
+        .expect("could not create database");
+
+    (db, file.into_temp_path())
 }
 
 macro_rules! test_basic_save_load {
@@ -151,6 +153,19 @@ macro_rules! test_basic_save_load {
             test_convert_data(db);
         }
     };
+    ($name:ident, $db:expr, $enc:ty, setupenv=true) => {
+        #[test]
+        #[cfg_attr(miri, ignore)]
+        fn $name() {
+            let env = $db;
+            let db: Database<Data, _, $enc> = env.0;
+            test_basic_save_load(&db);
+            test_put_data(&db);
+            test_multi_borrow(&db);
+            test_convert_data(db);
+            env.1.close().expect("Could not close environment");
+        }
+    };
 }
 
 test_basic_save_load!(file_ron, create_filedb(), Ron);
@@ -173,6 +188,6 @@ test_basic_save_load!(mmapsize_ron, create_mmapdb_with_size(10), Ron);
 test_basic_save_load!(mmapsize_yaml, create_mmapdb_with_size(10), Yaml);
 test_basic_save_load!(mmapsize_bincode, create_mmapdb_with_size(10), Bincode);
 
-test_basic_save_load!(path_ron, create_pathdb(), Ron);
-test_basic_save_load!(path_yaml, create_pathdb(), Yaml);
-test_basic_save_load!(path_bincode, create_pathdb(), Bincode);
+test_basic_save_load!(path_ron, create_pathdb(), Ron, setupenv = true);
+test_basic_save_load!(path_yaml, create_pathdb(), Yaml, setupenv = true);
+test_basic_save_load!(path_bincode, create_pathdb(), Bincode, setupenv = true);

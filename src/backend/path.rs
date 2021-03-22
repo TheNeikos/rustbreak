@@ -90,25 +90,29 @@ impl Backend for PathBackend {
 mod tests {
     use super::{Backend, PathBackend};
     use std::io::Write;
-    use tempfile::NamedTempFile;
+    use std::path::Path;
+    use tempfile::{tempdir, NamedTempFile};
 
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_path_backend_existing() {
         let file = NamedTempFile::new().expect("could not create temporary file");
-        let (mut backend, existed) = PathBackend::from_path_or_create(file.path().to_owned())
-            .expect("could not create backend");
+        let tmppath = file.into_temp_path();
+        let path: &Path = tmppath.as_ref();
+        let (mut backend, existed) =
+            PathBackend::from_path_or_create(path.to_owned()).expect("could not create backend");
         assert!(existed);
         let data = [4, 5, 1, 6, 8, 1];
 
         backend.put_data(&data).expect("could not put data");
         assert_eq!(backend.get_data().expect("could not get data"), data);
+        tmppath.close().expect("could not delete temp file");
     }
 
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_path_backend_new() {
-        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let dir = tempdir().expect("could not create temporary directory");
         let mut file_path = dir.path().to_owned();
         file_path.push("rustbreak_path_db.db");
         let (mut backend, existed) =
@@ -125,18 +129,20 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn test_path_backend_nofail() {
         let file = NamedTempFile::new().expect("could not create temporary file");
-        let file_path = file.path().to_owned();
-        let mut backend = PathBackend::from_path_or_fail(file_path).expect("should not fail");
+        let tmppath = file.into_temp_path();
+        let path: &Path = tmppath.as_ref();
+        let mut backend = PathBackend::from_path_or_fail(path.to_owned()).expect("should not fail");
         let data = [4, 5, 1, 6, 8, 1];
 
         backend.put_data(&data).expect("could not put data");
         assert_eq!(backend.get_data().expect("could not get data"), data);
+        tmppath.close().expect("could not delete temp file");
     }
 
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_path_backend_fail_notfound() {
-        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let dir = tempdir().expect("could not create temporary directory");
         let mut file_path = dir.path().to_owned();
         file_path.push("rustbreak_path_db.db");
         let err =
@@ -154,7 +160,9 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn test_path_backend_create_and_existing_nocall() {
         let file = NamedTempFile::new().expect("could not create temporary file");
-        let mut backend = PathBackend::from_path_or_create_and(file.path().to_owned(), |_| {
+        let tmppath = file.into_temp_path();
+        let path: &Path = tmppath.as_ref();
+        let mut backend = PathBackend::from_path_or_create_and(path.to_owned(), |_| {
             panic!("Closure called but file already existed");
         })
         .expect("could not create backend");
@@ -162,13 +170,14 @@ mod tests {
 
         backend.put_data(&data).expect("could not put data");
         assert_eq!(backend.get_data().expect("could not get data"), data);
+        tmppath.close().expect("could not delete temp file");
     }
 
     // If the file does not yet exist, the closure should be called.
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_path_backend_create_and_new() {
-        let dir = tempfile::tempdir().expect("could not create temporary directory");
+        let dir = tempdir().expect("could not create temporary directory");
         let mut file_path = dir.path().to_owned();
         file_path.push("rustbreak_path_db.db");
         let mut backend = PathBackend::from_path_or_create_and(file_path, |f| {

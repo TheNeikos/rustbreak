@@ -30,7 +30,6 @@ pub use self::bincode::Bincode;
 /// extern crate thiserror;
 /// extern crate serde;
 /// #[macro_use]
-///
 /// use serde::de::Deserialize;
 /// use serde::Serialize;
 /// use std::io::Read;
@@ -69,7 +68,8 @@ pub use self::bincode::Bincode;
 /// fn main() {}
 /// ```
 ///
-/// **Important**: You can only return custom errors if the `other_errors` feature is enabled
+/// **Important**: You can only return custom errors if the `other_errors`
+/// feature is enabled
 pub trait DeSerializer<T: Serialize + DeserializeOwned>:
     std::default::Default + Send + Sync + Clone
 {
@@ -93,7 +93,7 @@ mod ron {
     use crate::deser::DeSerializer;
     use crate::error;
 
-    /// The Struct that allows you to use `ron` the Rusty Object Notation.
+    /// The Struct that allows you to use `ron`, the Rusty Object Notation.
     #[derive(Debug, Default, Clone)]
     pub struct Ron;
 
@@ -118,7 +118,19 @@ mod yaml {
     use crate::deser::DeSerializer;
     use crate::error;
 
-    /// The struct that allows you to use yaml.
+    /// The struct that allows you to use yaml. 🔥 *do not use* 🔥
+    ///
+    /// 🔥🔥 __Warning__: Using this [`DeSerializer`] can trigger *Undefined
+    /// Behaviour (UB)*. 🔥🔥 It is *strongly* recommended to *not* use this
+    /// [`DeSerializer`] until these issues are fixed. The UB is triggered
+    /// in a transitive dependency (namely [`linked_hash_map`]) of Rustbreak.
+    /// There is nothing the Rustbreak devs can do about this.
+    /// The UB is real and reachable. It triggered by the Rustbreak test suite,
+    /// and detected by `miri`. See the [tracking issue #87] for more details.
+    /// 🔥🔥 __DO NOT USE__ 🔥🔥
+    ///
+    /// [`linked_hash_map`]: https://github.com/contain-rs/linked-hash-map
+    /// [tracking issue #87]: https://github.com/TheNeikos/rustbreak/issues/87
     #[derive(Debug, Default, Clone)]
     pub struct Yaml;
 
