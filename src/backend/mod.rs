@@ -161,12 +161,10 @@ impl MemoryBackend {
 
 impl Backend for MemoryBackend {
     fn get_data(&mut self) -> error::BackendResult<Vec<u8>> {
-        println!("Returning data: {:?}", &self.0);
         Ok(self.0.clone())
     }
 
     fn put_data(&mut self, data: &[u8]) -> error::BackendResult<()> {
-        println!("Writing data: {:?}", data);
         self.0 = data.to_owned();
         Ok(())
     }
